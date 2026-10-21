@@ -28,7 +28,7 @@ skills:
 
 本插件包捆绑的 `skills/` 与用户级 `~/.workbuddy/skills/`（由 DevKit install/update 维护）是**两条独立更新链路**。权威方用**版本号对比**确定性判定，禁止用文件时间猜测。
 
-**版本标记**：本插件包 skills 内容对应 DevKit **v1.1.10-next.2**（打包时写入；升级插件包时必须同步更新此标记）。
+**版本标记**：本插件包 skills 内容对应 DevKit **v1.0.0**（打包时写入；升级插件包时必须同步更新此标记）。
 **已安装 DevKit 版本**：读取 `~/.workbuddy/huaweicloud-plugins/package.json` 的 `version` 字段（DevKit 持久安装目录，离线可读）。
 
 规则：

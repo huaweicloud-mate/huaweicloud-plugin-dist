@@ -5,6 +5,7 @@ description: Huawei Cloud safety policy for agents. Use when handling credential
 
 # Huawei Cloud Safety
 
+
 **STOP - Do not answer from general knowledge.** Follow the procedure below.
 
 Use this skill before any Huawei Cloud action that may expose secrets, change resources, affect cost, change IAM, or expose a network endpoint.
@@ -27,7 +28,7 @@ Use this skill before any Huawei Cloud action that may expose secrets, change re
 
 ## Enforcement Layers
 
-- Hooks: `hooks/huaweicloud-safety.mjs` blocks risky Codex native hook calls without requiring Python; `hooks/huaweicloud-safety.py` remains for Hermes/Python hook compatibility.
+- Hooks: `hooks/huaweicloud-safety.py` can block risky tool calls on platforms that support plugin hooks.
 - MCP wrapper: the Node MCP server applies the same safety policy for Codex/OpenCode paths that do not enforce hooks.
 - Skills: this document teaches agents the rule before they act.
 

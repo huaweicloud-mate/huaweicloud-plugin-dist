@@ -18,10 +18,8 @@ hcloud EVS CreateVolume \
 ## Attach to ECS
 
 ```bash
-hcloud ECS AttachServerVolume --server_id=<ecs-id> --volumeAttachment.volumeId=<vol-id>
+hcloud EVS AttachVolume --volume_id=<vol-id> --server_id=<ecs-id>
 ```
-
-> The attach operation lives under `ECS` (not `EVS`), and the volume id uses the nested `--volumeAttachment.volumeId` parameter.
 
 ## List / Delete
 

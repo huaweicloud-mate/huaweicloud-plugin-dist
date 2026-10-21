@@ -22,7 +22,6 @@ When APIG calls FunctionGraph via DEDICATEDGATEWAY trigger, the event structure 
 `event["body"]` is Base64 encoded. You MUST decode it:
 
 **Python handler template:**
-
 ```python
 import json, base64
 
@@ -39,19 +38,18 @@ def handler(event, context):
 ```
 
 **Node.js handler template:**
-
 ```js
 exports.handler = async (event, context) => {
-  let body = event.body || '';
-  if (event.isBase64Encoded) {
-    body = Buffer.from(body, 'base64').toString('utf8');
-  }
-  const data = body ? JSON.parse(body) : {};
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: 'ok', received: data }),
-    headers: { 'Content-Type': 'application/json' },
-  };
+    let body = event.body || "";
+    if (event.isBase64Encoded) {
+        body = Buffer.from(body, "base64").toString("utf8");
+    }
+    const data = body ? JSON.parse(body) : {};
+    return {
+        statusCode: 200,
+        body: JSON.stringify({ message: "ok", received: data }),
+        headers: { "Content-Type": "application/json" }
+    };
 };
 ```
 
