@@ -1,0 +1,113 @@
+name: build
+
+# Build per-agent plugin packages from the huaweicloud-devkit source repo,
+# commit them under dist/<agent>/, and publish GitHub Releases with the zips.
+#
+# Triggers:
+#   - workflow_dispatch: manual, with inputs (source repo / ref / version)
+#   - repository_dispatch (types: [plugin-release]): sent by the main repo when
+#     it cuts a release. Payload: { "client_payload": { "ref": "...", "version": "..." } }
+#
+# Official channel submission (e.g. WorkBuddy store upload) is currently a
+# console/manual step: download the Release zip asset and upload it there.
+# When an official submission API exists, add a "publish-*" job below.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_repo:
+        description: 'Source repo (huaweicloud-devkit checkout to package)'
+        default: 'huaweicloud-mate/huaweicloud-devkit'
+        required: true
+      ref:
+        description: 'Git ref of the source repo to package (branch/tag/SHA)'
+        default: 'main'
+        required: true
+      version:
+        description: 'Version to stamp (defaults to the source package.json version)'
+        required: false
+  repository_dispatch:
+    types: [plugin-release]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.event_name == 'repository_dispatch' && github.event.client_payload.ref || github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  build-workbuddy:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_REPO: ${{ github.event_name == 'workflow_dispatch' && inputs.source_repo || 'huaweicloud-mate/huaweicloud-devkit' }}
+      SOURCE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.client_payload.ref }}
+      INPUT_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event.client_payload.version }}
+    steps:
+      - name: Checkout dist repo
+        uses: actions/checkout@v4
+
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SOURCE_REPO }}
+          ref: ${{ env.SOURCE_REF }}
+          path: main-src
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION=$(node -p "require('./main-src/package.json').version")
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building WorkBuddy package at version $VERSION (source: $SOURCE_REPO@$SOURCE_REF)"
+
+      - name: Build WorkBuddy expert package
+        run: node scripts/build-workbuddy.mjs --source main-src --version "${{ steps.version.outputs.version }}"
+
+      - name: Zip package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          cd dist/workbuddy
+          zip -qr "huaweicloud-plugin-workbuddy-v${VERSION}.zip" huaweicloud-plugin
+          cd ../..
+          echo "ASSET=dist/workbuddy/huaweicloud-plugin-workbuddy-v${VERSION}.zip" >> "$GITHUB_ENV"
+
+      - name: Commit dist changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist/
+          if git diff --cached --quiet; then
+            echo "No dist changes for this build"
+          else
+            git commit -m "build: workbuddy package v${{ steps.version.outputs.version }} (source: ${{ env.SOURCE_REPO }}@${{ env.SOURCE_REF }})"
+            git push
+          fi
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="workbuddy-v${VERSION}"
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" "$ASSET" \
+            --title "WorkBuddy Expert Package v${VERSION}" \
+            --notes "WorkBuddy expert package built from ${SOURCE_REPO}@${SOURCE_REF}. Upload the zip asset to the WorkBuddy store console to submit officially."
+
+      - name: Summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          {
+            echo "## WorkBuddy package v${VERSION}"
+            echo ""
+            echo "- Source: \`${SOURCE_REPO}@${SOURCE_REF}\`"
+            echo "- Dist: \`dist/workbuddy/huaweicloud-plugin/\` (committed)"
+            echo "- Release: \`workbuddy-v${VERSION}\` with zip asset"
+            echo ""
+            echo "**Official submission**: download the zip asset and upload it to the WorkBuddy store console (manual step; replace this job with an API integration when available)."
+          } >> "$GITHUB_STEP_SUMMARY"

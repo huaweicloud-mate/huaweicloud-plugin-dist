@@ -1,0 +1,93 @@
+{
+  "name": "huaweicloud-plugin",
+  "version": "1.1.10-next.2",
+  "description": "Guide coding agents to use Huawei Cloud Skills, KooCLI, APIs, SDKs, and MCP tools with safer execution and less context — cloud sandbox deployment, voucher claiming, and safety guardrails included",
+  "author": {
+    "name": "HuaweiCloud",
+    "email": "devkit@huaweicloud.com"
+  },
+  "agents": [
+    "./agents/huaweicloud-plugin.md"
+  ],
+  "skills": [
+  "./skills/huaweicloud-api-and-sdk",
+  "./skills/huaweicloud-capability-discovery",
+  "./skills/huaweicloud-cli-and-auth",
+  "./skills/huaweicloud-core",
+  "./skills/huaweicloud-safety",
+  "./skills/huaweicloud-troubleshooting",
+  "./skills/huawei-billing",
+  "./skills/huawei-cbr",
+  "./skills/huawei-cce",
+  "./skills/huawei-cloud-apig-instance-management",
+  "./skills/huawei-cloud-cts-trace-management",
+  "./skills/huawei-cloud-dds-dcs-instance-management",
+  "./skills/huawei-cloud-deployment-task-management",
+  "./skills/huawei-cloud-dew-key-management",
+  "./skills/huawei-cloud-eye",
+  "./skills/huawei-cloud-gaussdb-instance-management",
+  "./skills/huawei-cloud-smn-dms-message",
+  "./skills/huawei-cloud-waf-aad-rule-management",
+  "./skills/huawei-ecs",
+  "./skills/huawei-functiongraph",
+  "./skills/huawei-getting-started",
+  "./skills/huawei-iac",
+  "./skills/huawei-iam",
+  "./skills/huawei-modelarts",
+  "./skills/huawei-obs",
+  "./skills/huawei-rds",
+  "./skills/huawei-sandbox",
+  "./skills/huawei-voucher",
+  "./skills/huawei-vpc"
+],
+  "expertType": "agent",
+  "agentName": "huaweicloud-plugin",
+  "displayName": {
+    "en": "HWCloud Devkit",
+    "zh": "HWCloud Devkit"
+  },
+  "profession": {
+    "en": "HWCloud Devkit",
+    "zh": "华为云插件"
+  },
+  "displayDescription": {
+    "en": "HuaweiCloud Devkit gives AI agents complete command of Huawei Cloud — build, deploy, operate, always governed, always secure",
+    "zh": "让 AI 智能体掌握华为云全流程操作——构建、部署、运维全程受控，助您轻松安全上云"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "02-Engineering",
+  "defaultInitPrompt": {
+    "zh": "我想在华为云上操作资源，请帮我规划并安全执行。",
+    "en": "I want to operate resources on Huawei Cloud, please help me plan and execute safely."
+  },
+  "plugin": "huaweicloud-plugin",
+  "tags": [
+    {
+      "en": "Huawei Cloud",
+      "zh": "华为云"
+    },
+    {
+      "en": "Fast Sandbox",
+      "zh": "极速沙箱体验"
+    },
+    {
+      "en": "Easy Cloud Onboarding",
+      "zh": "轻松上云"
+    }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "我想在华为云上操作资源，请帮我规划并安全执行。",
+      "en": "I want to operate resources on Huawei Cloud, please help me plan and execute safely."
+    },
+    {
+      "zh": "帮我创建一台ECS云服务器",
+      "en": "Help me create an ECS instance"
+    },
+    {
+      "zh": "我想部署一个应用到华为云沙箱",
+      "en": "I want to deploy an app to Huawei Cloud sandbox"
+    }
+  ],
+  "sharedBy": "张法军"
+}
