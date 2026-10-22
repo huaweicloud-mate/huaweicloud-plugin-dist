@@ -1,6 +1,6 @@
 {
   "name": "huaweicloud-plugin",
-  "version": "1.1.11",
+  "version": "1.1.12",
   "description": "Guide coding agents to use Huawei Cloud Skills, KooCLI, APIs, SDKs, and MCP tools with safer execution and less context — cloud sandbox deployment, voucher claiming, and safety guardrails included",
   "author": {
     "name": "HuaweiCloud",
