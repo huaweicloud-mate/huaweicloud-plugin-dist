@@ -1,6 +1,6 @@
 # 华为云专家 (Huawei Cloud Expert)
 
-华为云全栈运维专家，覆盖 20+ 华为云服务，以安全第一、稳健降级为核心准则。知识内容同步自 [huaweicloud-mate/huaweicloud-devkit](https://github.com/huaweicloud-mate/huaweicloud-devkit) v__VERSION__。
+华为云全栈运维专家，覆盖 20+ 华为云服务，以安全第一、稳健降级为核心准则。知识内容同步自 [huaweicloud/huaweicloud-devkit](https://github.com/huaweicloud/huaweicloud-devkit) v__VERSION__。
 
 ## 能力概览
 

@@ -1,12 +1,16 @@
 name: build
 
-# Build per-agent plugin packages from the huaweicloud-devkit source repo,
-# commit them under dist/<agent>/, and publish GitHub Releases with the zips.
+# Build per-agent plugin packages from the upstream huaweicloud/huaweicloud-devkit
+# source repo (where the npm package is published from), commit them under
+# dist/<agent>/, and publish GitHub Releases with the zips.
+#
+# Version is resolved from the npm registry (`npm view huaweicloud-devkit version`)
+# so the package version always matches the published npm package.
 #
 # Triggers:
 #   - workflow_dispatch: manual, with inputs (source repo / ref / version)
-#   - repository_dispatch (types: [plugin-release]): sent by the main repo when
-#     it cuts a release. Payload: { "client_payload": { "ref": "...", "version": "..." } }
+#   - repository_dispatch (types: [plugin-release]): sent when a release is cut.
+#     Payload: { "client_payload": { "ref": "...", "version": "..." } }
 #
 # Official channel submission (e.g. WorkBuddy store upload) is currently a
 # console/manual step: download the Release zip asset and upload it there.
@@ -17,14 +21,14 @@ on:
     inputs:
       source_repo:
         description: 'Source repo (huaweicloud-devkit checkout to package)'
-        default: 'huaweicloud-mate/huaweicloud-devkit'
+        default: 'huaweicloud/huaweicloud-devkit'
         required: true
       ref:
         description: 'Git ref of the source repo to package (branch/tag/SHA)'
-        default: 'main'
+        default: 'dev'
         required: true
       version:
-        description: 'Version to stamp (defaults to the source package.json version)'
+        description: 'Version to stamp (defaults to the npm registry version of huaweicloud-devkit)'
         required: false
   repository_dispatch:
     types: [plugin-release]
@@ -40,8 +44,8 @@ jobs:
   build-workbuddy:
     runs-on: ubuntu-latest
     env:
-      SOURCE_REPO: ${{ github.event_name == 'workflow_dispatch' && inputs.source_repo || 'huaweicloud-mate/huaweicloud-devkit' }}
-      SOURCE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.client_payload.ref }}
+      SOURCE_REPO: ${{ github.event_name == 'workflow_dispatch' && inputs.source_repo || 'huaweicloud/huaweicloud-devkit' }}
+      SOURCE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.client_payload.ref || 'dev' }}
       INPUT_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event.client_payload.version }}
     steps:
       - name: Checkout dist repo
@@ -60,7 +64,8 @@ jobs:
           if [ -n "$INPUT_VERSION" ]; then
             VERSION="$INPUT_VERSION"
           else
-            VERSION=$(node -p "require('./main-src/package.json').version")
+            # npm registry is the single source of truth for the package version
+            VERSION=$(npm view huaweicloud-devkit version)
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Building WorkBuddy package at version $VERSION (source: $SOURCE_REPO@$SOURCE_REF)"
@@ -70,11 +75,10 @@ jobs:
 
       - name: Zip package
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
           cd dist/workbuddy
-          zip -qr "huaweicloud-plugin-workbuddy-v${VERSION}.zip" huaweicloud-plugin
+          zip -qr "huaweicloud-plugin.zip" huaweicloud-plugin
           cd ../..
-          echo "ASSET=dist/workbuddy/huaweicloud-plugin-workbuddy-v${VERSION}.zip" >> "$GITHUB_ENV"
+          echo "ASSET=dist/workbuddy/huaweicloud-plugin.zip" >> "$GITHUB_ENV"
 
       - name: Commit dist changes
         run: |
