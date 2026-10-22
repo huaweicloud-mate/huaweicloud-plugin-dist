@@ -75,11 +75,24 @@ if (skillDirs.length === 0) {
 // Meta-skills (huaweicloud-*) first, then service skills (huawei-*), both sorted.
 const metaSkills = skillDirs.filter((n) => n.startsWith('huaweicloud-')).sort();
 const serviceSkills = skillDirs.filter((n) => n.startsWith('huawei-')).sort();
-const ordered = [...metaSkills, ...serviceSkills];
 const stray = skillDirs.filter((n) => !n.startsWith('huaweicloud-') && !n.startsWith('huawei-'));
 if (stray.length > 0) {
   console.error(`ERROR: skill dirs outside the huawei-/huaweicloud- naming scheme: ${stray.join(', ')}`);
   process.exit(1);
+}
+
+// Order: official WorkBuddy expert-package business order (templates/<agent>/skills-order.json),
+// with any new skills (not listed) appended alphabetically at the end.
+const orderFile = path.join(templateDir, 'skills-order.json');
+const order = JSON.parse(await readFile(orderFile, 'utf8'));
+const known = new Set(order);
+const unknown = skillDirs.filter((n) => !known.has(n));
+const ordered = [
+  ...order.filter((n) => skillDirs.includes(n)),
+  ...unknown.sort(),
+];
+if (unknown.length > 0) {
+  console.warn(`WARN: skills not in skills-order.json, appended at the end: ${unknown.join(', ')}`);
 }
 
 // Clean output and lay down the package skeleton.
