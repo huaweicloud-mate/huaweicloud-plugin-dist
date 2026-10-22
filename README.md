@@ -16,8 +16,19 @@ dist/<agent>/             构建产物（解包形态，提交入库便于 revie
 | Agent | 模板 | 构建脚本 | 产物 |
 |-------|------|---------|------|
 | WorkBuddy（专家包） | `templates/workbuddy/` | `scripts/build-workbuddy.mjs` | `dist/workbuddy/huaweicloud-plugin/` |
+| ClawHub（OpenClaw） | 无需模板（包即 `plugins/huaweicloud-core` 原样） | `scripts/build-clawhub.mjs` | `dist/clawhub/huaweicloud-core/` |
 
 后续新增 agent（codex / claude / cursor / opencode ...）时，各加一套 `templates/<agent>/` + `scripts/build-<agent>.mjs` + workflow job 即可。
+
+## ClawHub 包结构
+
+```text
+huaweicloud-core/                # npm tarball 里的 plugins/huaweicloud-core 目录原样
+  openclaw.plugin.json           # 版本由主仓 sync-version 维护，与 npm 严格一致（构建时校验）
+  skills/  src/  hooks/  safety/  assets/  .mcp.json  ...
+```
+
+从 npm registry tarball 构建（`npm pack huaweicloud-devkit@<版本>`），内容与 npm 版本严格一致。官方提交**可全自动**：workflow 里的 `publish-clawhub` job 通过 clawhub CLI 发布（`--family bundle-plugin --bundle-format codex`），需配置仓库 variable `CLAWHUB_ENABLED=true` + secret `CLAWHUB_TOKEN` 后激活；未配置时自动跳过，构建与 Release 照常。安装方式：`openclaw plugins install clawhub:huaweicloud-devkit`。
 
 ## WorkBuddy 专家包结构
 
@@ -36,6 +47,9 @@ huaweicloud-plugin/
 node scripts/build-workbuddy.mjs --source <主仓 checkout 路径> --version <版本号>
 # 版本号用 npm 包版本：node scripts/build-workbuddy.mjs --source <路径> --version "$(npm view huaweicloud-devkit version)"
 # 产物：dist/workbuddy/huaweicloud-plugin/
+
+node scripts/build-clawhub.mjs --version "$(npm view huaweicloud-devkit version)"
+# 产物：dist/clawhub/huaweicloud-core/（从 npm registry tarball 构建）
 ```
 
 ## 自动分发
@@ -53,7 +67,7 @@ gh api repos/huaweicloud-mate/huaweicloud-plugin-dist/dispatches \
   -F 'client_payload[version]=<版本号>'
 ```
 
-流水线动作：构建 → 提交 `dist/` 变更 → 创建 Release（tag `workbuddy-v<版本>`，附 `huaweicloud-plugin.zip` 产物）→ 记录已构建版本（`.state/last-built-npm-version`，供轮询判重）。
+流水线动作：构建（workbuddy + clawhub 两个 job）→ 提交 `dist/` 变更 → 创建 Release（tag `workbuddy-v<版本>` / `clawhub-v<版本>`，附 `huaweicloud-plugin.zip` / `huaweicloud-devkit.zip` 产物）→ 记录已构建版本（`.state/last-built-npm-version`，供轮询判重）。ClawHub 官方提交 job 在构建后自动运行（门控激活时）。
 
 **官方提交途径**：WorkBuddy 专家包目前为控制台人工上传 — 从 Release 下载 zip 后上传到 WorkBuddy 商店。当官方提供提交 API 时，在 workflow 中追加 `publish-*` job 即可接入。
 

@@ -1,0 +1,625 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { evaluateCommandRisk, mergeRiskDecision } from './risk-rule-engine.mjs';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const policyPath = join(__dirname, '..', 'safety', 'policy.json');
+
+export function loadPolicy() {
+  return JSON.parse(readFileSync(policyPath, 'utf8'));
+}
+
+const DEFAULT_POLICY = loadPolicy();
+
+function regexFrom(pattern) {
+  return new RegExp(pattern, 'i');
+}
+
+function isSecretKeyName(key, policy = DEFAULT_POLICY) {
+  const normalized = String(key)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  if (
+    /access.*key|secret.*key|security.*token|xauth.*token|authorization|password|passwd|adminpass|credential|private.*key|userdata|metadata/.test(
+      normalized,
+    )
+  ) {
+    return true;
+  }
+  return policy.secretKeyNamePatterns.some((pattern) => regexFrom(`^(${pattern})$`).test(key));
+}
+
+function redactString(text) {
+  return (
+    String(text)
+      // Opaque blob keys (cloud-init user_data, metadata, private_key) carry
+      // base64/scripts that may embed SSH keys, DB passwords, bootstrap tokens.
+      // Redact the ENTIRE value of this arg — not just the first whitespace token.
+      .replace(/((?:user[_-]?data|metadata|private[_-]?key)\s*[:=]\s*).*/gi, '$1<redacted>')
+      .replace(
+        /((?:access[_-]?key|secret[_-]?key|security[_-]?token|x[_-]?auth[_-]?token|token|authorization|password|passwd|admin[_-]?pass|credential)\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;]+)/gi,
+        '$1<redacted>',
+      )
+      .replace(/(AK|SK)\s*[:=]\s*("[^"]*"|'[^']*'|[^\s,;]+)/g, '$1=<redacted>')
+  );
+}
+
+export function redactSecrets(value, policy = DEFAULT_POLICY) {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactSecrets(item, policy));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, val]) => [
+        key,
+        isSecretKeyName(key, policy) ? '<redacted>' : redactSecrets(val, policy),
+      ]),
+    );
+  }
+  if (typeof value === 'string') {
+    return redactString(value);
+  }
+  return value;
+}
+
+function stripExecutable(args) {
+  if (!args.length) return [];
+  let current = args;
+  // Unwrap shell wrappers (bash -c / sh -c 'hcloud ...', sudo hcloud ...,
+  // cmd /c "hcloud ...", powershell -Command "hcloud ...") so wrapped write
+  // commands keep their deny classification (#650 D4-16, #731 / #760).
+  for (let depth = 0; depth < 5; depth++) {
+    const first = String(current[0]).toLowerCase();
+    const isShell = [
+      'bash',
+      'sh',
+      'zsh',
+      'dash',
+      'bash.exe',
+      'sh.exe',
+      '/bin/bash',
+      '/bin/sh',
+      '/bin/zsh',
+      '/bin/dash',
+    ].includes(first);
+    if (isShell && String(current[1]).toLowerCase() === '-c' && current[2]) {
+      current = splitSimpleCommand(current[2]);
+      continue;
+    }
+    // Windows: cmd /c "…" / cmd /k "…" / cmd.exe /c "…"
+    if (first === 'cmd' || first === 'cmd.exe') {
+      const flag = String(current[1] || '').toLowerCase();
+      if ((flag === '/c' || flag === '/k') && current[2]) {
+        current = splitSimpleCommand(current[2]);
+        continue;
+      }
+    }
+    // Windows: powershell -Command "…" / powershell -c "…" / pwsh -Command "…"
+    if (first === 'powershell' || first === 'powershell.exe' || first === 'pwsh' || first === 'pwsh.exe') {
+      const flag = String(current[1] || '').toLowerCase();
+      if ((flag === '-command' || flag === '-c') && current[2]) {
+        current = splitSimpleCommand(current[2]);
+        continue;
+      }
+    }
+    if (first === 'sudo' && current.length > 1) {
+      current = current.slice(1);
+      continue;
+    }
+    break;
+  }
+  const first = String(current[0]).toLowerCase();
+  if (first === 'hcloud' || first.endsWith('/hcloud') || first.endsWith('\\hcloud') || first === 'hcloud.exe') {
+    return current.slice(1);
+  }
+  return current;
+}
+
+function commandOperation(args) {
+  const stripped = stripExecutable(args).map(String).filter(Boolean);
+  if (stripped[0]?.toLowerCase() === 'configure') {
+    return { service: 'configure', operation: stripped[1] || '', args: stripped };
+  }
+  const nonFlags = stripped.filter((arg) => !arg.startsWith('-'));
+  return {
+    service: nonFlags[0] || '',
+    operation: nonFlags[1] || nonFlags[0] || '',
+    args: stripped,
+  };
+}
+
+function matchesAny(value, patterns) {
+  return patterns.some((pattern) => regexFrom(pattern).test(value));
+}
+
+function hasWritePrefix(operation, policy) {
+  const normalized = String(operation);
+  return policy.writeOperationPrefixes.some((prefix) => new RegExp(`(^|[A-Za-z0-9])${prefix}`, 'i').test(normalized));
+}
+
+function hasReadPrefix(operation, policy) {
+  return policy.readOperationPrefixes.some((prefix) => new RegExp(`^${prefix}`, 'i').test(operation));
+}
+
+function isLocalMetadataCommand(args) {
+  return args.some((arg) => /^(--help|-h|help|version|--version)$/i.test(String(arg)));
+}
+
+function commandRiskText(normalizedArgs, options = {}) {
+  return options.rawCommand || ['hcloud', ...normalizedArgs].join(' ');
+}
+
+function applyCommandRiskRules(base, normalizedArgs, options = {}) {
+  if (base.decision === 'deny' || options.skipRiskRules === true) {
+    return base;
+  }
+  const risk = evaluateCommandRisk(commandRiskText(normalizedArgs, options));
+  return mergeRiskDecision(base, risk);
+}
+
+function applyRawCommandRiskRules(base, command, options = {}) {
+  if (base.decision === 'deny' || options.skipRiskRules === true) {
+    return base;
+  }
+  const risk = evaluateCommandRisk(command);
+  return mergeRiskDecision(base, risk);
+}
+
+// Find hcloud command segments split by shell operators (; && || |) so a write
+// command in the middle of a concatenated string keeps its deny classification
+// (#650 review edge 1).
+function findHcloudCommandSegments(text) {
+  return String(text)
+    .split(/(?:\|\||&&|;|\|)/)
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .map((segment) => splitSimpleCommand(segment))
+    .filter((tokens) => {
+      const first = String(tokens[0] || '').toLowerCase();
+      return first === 'hcloud' || first.endsWith('/hcloud') || first.endsWith('\\hcloud') || first === 'hcloud.exe';
+    });
+}
+
+export function classifyHcloudArgs(args, options = {}) {
+  const policy = options.policy || DEFAULT_POLICY;
+  // Second pass for shell-wrapped input (#650 D4-16 review edge 1): when the
+  // leading command is not hcloud but a concatenated segment contains one,
+  // classify every hcloud segment and merge to the most severe decision.
+  const unwrappedTokens = stripExecutable(Array.isArray(args) ? args.map(String) : []);
+  const unwrappedFirst = String(unwrappedTokens[0] || '').toLowerCase();
+  const unwrappedIsHcloud =
+    unwrappedFirst === 'hcloud' ||
+    unwrappedFirst.endsWith('/hcloud') ||
+    unwrappedFirst.endsWith('\\hcloud') ||
+    unwrappedFirst === 'hcloud.exe';
+  if (!unwrappedIsHcloud && !options._segmentDepth) {
+    const hcloudSegments = findHcloudCommandSegments(unwrappedTokens.join(' '));
+    if (hcloudSegments.length > 0) {
+      const results = hcloudSegments.map((segment) => classifyHcloudArgs(segment, { ...options, _segmentDepth: 1 }));
+      return (
+        results.find((result) => result.decision === 'deny') ||
+        results.find((result) => ['write', 'execution', 'secret', 'credential'].includes(result.risk)) ||
+        results[0]
+      );
+    }
+  }
+  const { service, operation, args: normalizedArgs } = commandOperation(args);
+  const joined = normalizedArgs.join(' ');
+
+  if (!normalizedArgs.length) {
+    return {
+      decision: 'deny',
+      risk: 'invalid',
+      reason: 'Empty hcloud command arguments are not executable.',
+    };
+  }
+
+  if (isLocalMetadataCommand(normalizedArgs)) {
+    return applyCommandRiskRules(
+      {
+        decision: 'allow',
+        risk: 'local_metadata',
+        reason: 'KooCLI local help and version commands are read-only and do not call Huawei Cloud resource APIs.',
+        service,
+        operation,
+        args: normalizedArgs,
+      },
+      normalizedArgs,
+      options,
+    );
+  }
+
+  if (service.toLowerCase() === 'configure') {
+    const subcommand = operation.toLowerCase();
+    if (
+      policy.blockedConfigureSubcommands.map((cmd) => cmd.toLowerCase()).includes(subcommand) &&
+      options.allowCredentialRead !== true
+    ) {
+      return {
+        decision: 'deny',
+        risk: 'credential',
+        reason:
+          'Direct hcloud configure inspection may expose profile credentials. Use the redacted toolkit tools instead.',
+      };
+    }
+  }
+
+  if (policy.blockedSecretOperations.some((op) => op.toLowerCase() === operation.toLowerCase())) {
+    return {
+      decision: 'deny',
+      risk: 'secret',
+      reason: 'Direct secret value reads are blocked so plaintext secrets do not enter the agent context.',
+    };
+  }
+
+  if (/secret[_-]?string|secret[_-]?binary|showsecret|showsecretversion|getsecretvalue/i.test(joined)) {
+    return {
+      decision: 'deny',
+      risk: 'secret',
+      reason: 'The command appears to retrieve a secret value. Use a runtime secret reference pattern instead.',
+    };
+  }
+
+  const readOnly = hasReadPrefix(operation, policy);
+  const executionOps =
+    /(^|\.)(Invoke|SyncInvoke|AsyncInvoke|Send|Trigger|Execute|Start|Reboot|Restart|Stop|Publish|Deploy)/i;
+  const isExecution = executionOps.test(operation) && !readOnly;
+  const isWrite = !readOnly && hasWritePrefix(operation, policy);
+
+  if (isExecution && !options.allowWrites) {
+    return {
+      decision: 'deny',
+      risk: 'execution',
+      reason: 'Huawei Cloud execution/trigger operation blocked until approved.',
+    };
+  }
+
+  if (isWrite && !options.allowWrites) {
+    return {
+      decision: 'deny',
+      risk: 'write',
+      reason:
+        'Huawei Cloud write operation blocked until the agent presents a plan and receives explicit user approval.',
+    };
+  }
+
+  const obsutilWrites = [
+    'mb',
+    'cp',
+    'mv',
+    'rm',
+    'delete',
+    'mkdir',
+    'sync',
+    'restore',
+    'chattri',
+    'bucketpolicy',
+    'lifecycle',
+    // #1001: 'cors' and 'website' were removed — KooCLI 7.x's OBS wrapper does
+    // NOT expose them (`hcloud OBS help cors` → "No such command"; same for
+    // website). A nonexistent command cannot produce a write side effect, so
+    // grading it as a write was safety based on a stale assumption. CORS/static-
+    // website config goes through the REST API (PUT /?cors) — see the
+    // huawei-obs skill common-pitfalls.md CORS chapter.
+    'sign',
+    'share-add',
+    'share-update',
+    'share-rm',
+  ];
+  const obsutilReads = ['ls', 'stat', 'cat', 'help', 'version'];
+  const isObs = service.toLowerCase() === 'obs' || service.toLowerCase() === 'hcloud obs';
+  const isObsWrite = isObs && obsutilWrites.includes(operation);
+  const isObsRead = isObs && obsutilReads.includes(operation);
+  if (isObsWrite && !options.allowWrites) {
+    return {
+      decision: 'deny',
+      risk: 'write',
+      reason: 'OBS write operation blocked until the agent presents a plan and receives explicit user approval.',
+    };
+  }
+  if (isObsRead) {
+    return applyCommandRiskRules(
+      {
+        decision: 'allow',
+        risk: 'read_only',
+        reason: 'OBS read-only operation.',
+        service,
+        operation,
+        args: normalizedArgs,
+      },
+      normalizedArgs,
+      options,
+    );
+  }
+  if (isObsWrite && options.allowWrites) {
+    return applyCommandRiskRules(
+      {
+        decision: 'allow',
+        risk: 'write',
+        reason: 'OBS write operation approved by user.',
+        service,
+        operation,
+        args: normalizedArgs,
+      },
+      normalizedArgs,
+      options,
+    );
+  }
+
+  if (isExecution && options.allowWrites) {
+    return applyCommandRiskRules(
+      {
+        decision: 'allow',
+        risk: 'execution',
+        reason: 'Huawei Cloud execution/trigger operation approved by user.',
+        service,
+        operation,
+        args: normalizedArgs,
+      },
+      normalizedArgs,
+      options,
+    );
+  }
+
+  if (isWrite && options.allowWrites) {
+    return applyCommandRiskRules(
+      {
+        decision: 'allow',
+        risk: 'write',
+        reason: 'Huawei Cloud write operation approved by user.',
+        service,
+        operation,
+        args: normalizedArgs,
+      },
+      normalizedArgs,
+      options,
+    );
+  }
+
+  return applyCommandRiskRules(
+    {
+      decision: 'allow',
+      risk: readOnly ? 'read_only' : 'unknown_read',
+      reason: readOnly
+        ? 'Command appears to be a read-only Huawei Cloud operation.'
+        : 'Command does not match a known write or secret operation; treat output as untrusted and redact it.',
+      service,
+      operation,
+      args: normalizedArgs,
+    },
+    normalizedArgs,
+    options,
+  );
+}
+
+function splitSimpleCommand(command) {
+  return (
+    String(command)
+      .match(/"[^"]*"|'[^']*'|\S+/g)
+      // Strip ALL quote characters (not just the outer pair): POSIX shells
+      // remove quotes before executing, so an embedded-quote form like
+      // `hcloud ECS De'leteServer …` actually runs `DeleteServer`. Stripping
+      // only outer quotes left `De'leteServer` in the token and let the write/
+      // secret/execution matchers miss it (#927). This hcloud classification
+      // path only — credential-var lookbehind still sees raw text with quotes.
+      .map((part) => part.replace(/['"]/g, '')) || []
+  );
+}
+
+// Extract inner command text from shell wrappers: bash -c "…", sh -c '…',
+// eval "…", $(…), `…`, Windows cmd/powershell. Returns an array of extracted
+// inner strings (may include nested extractions). This lets classifyTextCommand
+// inspect the actual payload instead of the wrapper tokens (#758 D4-16).
+export function extractInnerCommand(text, depth = 0) {
+  if (depth > 3) return [];
+  const t = String(text || '');
+  const results = [];
+  let m;
+
+  // bash -c "…" / sh -c '…' / /bin/bash -c "…" / bash.exe -c '…'
+  const shellWrap = /\b(?:bash|sh|zsh|dash|\/bin\/(?:bash|sh|zsh|dash)|bash\.exe|sh\.exe)\s+-c\s+(["'])([\s\S]*?)\1/gi;
+  while ((m = shellWrap.exec(t)) !== null) {
+    if (m[2]) {
+      results.push(m[2]);
+      results.push(...extractInnerCommand(m[2], depth + 1));
+    }
+  }
+
+  // eval "…" / eval '…'
+  const evalWrap = /\beval\s+(["'])([\s\S]*?)\1/gi;
+  while ((m = evalWrap.exec(t)) !== null) {
+    if (m[2]) {
+      results.push(m[2]);
+      results.push(...extractInnerCommand(m[2], depth + 1));
+    }
+  }
+
+  // $(…) command substitution (single-level; nested parens are a known limitation)
+  const cmdSubst = /\$\(([^)]+)\)/g;
+  while ((m = cmdSubst.exec(t)) !== null) {
+    if (m[1]) {
+      results.push(m[1]);
+      results.push(...extractInnerCommand(m[1], depth + 1));
+    }
+  }
+
+  // `…` backtick command substitution (POSIX sh). Treated the same as $(…):
+  // the inner text is extracted as an independent candidate and recursed
+  // into so that `hcloud ECS DeleteServer …` is classified correctly (#758).
+  const backtickSubst = /`([^`]+)`/g;
+  while ((m = backtickSubst.exec(t)) !== null) {
+    if (m[1]) {
+      results.push(m[1]);
+      results.push(...extractInnerCommand(m[1], depth + 1));
+    }
+  }
+
+  // Windows: cmd /c "…" / cmd /k '…' / cmd.exe /c "…" (#731 / #760).
+  // /c runs and terminates; /k runs and keeps the shell — both can wrap hcloud.
+  const cmdWrap = /\b(?:cmd|cmd\.exe)\s+\/[ck]\s+(["'])([\s\S]*?)\1/gi;
+  while ((m = cmdWrap.exec(t)) !== null) {
+    if (m[2]) {
+      results.push(m[2]);
+      results.push(...extractInnerCommand(m[2], depth + 1));
+    }
+  }
+
+  // Windows: powershell -Command "…" / powershell -c '…' / pwsh -Command "…"
+  // / pwsh.exe -c "…" (#731 / #760). Covers both Windows PowerShell and
+  // PowerShell Core (pwsh). The -Command/-c flag executes the quoted string.
+  const psWrap = /\b(?:powershell|powershell\.exe|pwsh|pwsh\.exe)\s+(?:-Command|-c)\s+(["'])([\s\S]*?)\1/gi;
+  while ((m = psWrap.exec(t)) !== null) {
+    if (m[2]) {
+      results.push(m[2]);
+      results.push(...extractInnerCommand(m[2], depth + 1));
+    }
+  }
+
+  return results;
+}
+
+// Find the hcloud keyword in a command position (string start, after shell
+// separators ; | &, after command-substitution openings $( `, or after sudo).
+// Excludes hcloud mentioned in natural-language/echo text to avoid false-
+// positive deny/write on documentation text (#758 D4-11 P1 fix). Candidates
+// from extractInnerCommand (shell wrappers) start with hcloud directly so
+// ^hcloud still catches wrapped commands and prompt-injections using
+// separators. sudo\s+ preserves the dev-baseline behaviour where
+// `sudo hcloud …` is treated as a real command, not documentation (#760 P0).
+// Keyword-locator pattern shared by the raw-text match and the quote-stripped
+// retry in extractHcloudSubcommand (`im` flag, no `g` — no lastIndex state).
+const HCLOUD_KEYWORD_PATTERN = /(?:^|[;|&]\s*|\$\(\s*|`\s*|sudo\s+|\r?\n\s*)(hcloud(?:\.exe)?\b)/im;
+
+function extractHcloudSubcommand(text) {
+  const t = String(text || '');
+  // `m` flag + newline in the separator class: a hcloud command at the start
+  // of any line (not just the first) must be located and fully classified —
+  // previously `echo hello\nhcloud ECS DeleteServer …` fell through as
+  // not_huaweicloud allow (#927).
+  const match = HCLOUD_KEYWORD_PATTERN.exec(t);
+  if (match) {
+    const hcloudIndex = match.index + match[0].length - match[1].length;
+    return t.slice(hcloudIndex);
+  }
+  // Keyword-embedded quotes fallback (#927 B1): POSIX shells strip quotes
+  // before execution, so `hc'loud ECS DeleteServer …` runs `hcloud …` — but
+  // the literal match above never sees the keyword through the quotes and the
+  // command fell through as not_huaweicloud allow (its de-quoted form is
+  // DENY). Retry on a quote-stripped COPY used only for hcloud keyword
+  // location; the returned subcommand is the de-quoted text, matching the
+  // de-quote semantics splitSimpleCommand already applies to tokens.
+  // Credential/env-var checks in classifyTextCommand still run on the raw
+  // text — the two paths stay independent — and natural-language mentions
+  // ("see hcloud docs", "echo hcloud is a CLI") match the same anchored
+  // pattern, so no new false positives are introduced.
+  const stripped = t.replace(/['"]/g, '');
+  const strippedMatch = HCLOUD_KEYWORD_PATTERN.exec(stripped);
+  if (!strippedMatch) return null;
+  const hcloudIndex = strippedMatch.index + strippedMatch[0].length - strippedMatch[1].length;
+  return stripped.slice(hcloudIndex);
+}
+
+export function classifyTextCommand(command, options = {}) {
+  const policy = options.policy || DEFAULT_POLICY;
+  const text = String(command || '');
+
+  // Extract inner commands from shell wrappers (bash -c, sh -c, eval, $()).
+  // Each candidate (original + extracted inners) is checked independently so a
+  // wrapped credential dump or hcloud write is caught even when the wrapper
+  // text alone doesn't match (#758 D4-16, also covers #682 env-dump vector).
+  const candidates = [text, ...extractInnerCommand(text)];
+
+  // Credential file reads — check all candidates.
+  for (const candidate of candidates) {
+    if (matchesAny(candidate, policy.credentialFilePatterns)) {
+      return {
+        decision: 'deny',
+        risk: 'credential',
+        reason:
+          'Reading Huawei Cloud credential or profile files is blocked. Use redacted profile inspection tools instead.',
+      };
+    }
+  }
+
+  // Env var dumps — check all candidates (covers bash -c "env | grep HUAWEICLOUD", #682).
+  for (const candidate of candidates) {
+    if (
+      /(^|\s)(env|printenv|Get-ChildItem\s+Env:|gci\s+Env:|dir\s+Env:)/i.test(candidate) &&
+      /HUAWEICLOUD|HWC_|HW_|HCLOUD|OS_/i.test(candidate)
+    ) {
+      return {
+        decision: 'deny',
+        risk: 'credential',
+        reason: 'Dumping cloud credential environment variables is blocked.',
+      };
+    }
+  }
+
+  // Credential variable references bypass the env-command gate above: HW_ is
+  // the plugin's own documented credential prefix (HW_ACCESS_KEY/HW_SECRET_KEY/
+  // HW_SECURITY_TOKEN), cloud environments also expose the AWS-style
+  // HUAWEICLOUD_SECRET_ACCESS_KEY name, and `echo $HW_SECRET_KEY` /
+  // `printenv HW_ACCESS_KEY` / `echo $HUAWEICLOUD_SECRET_ACCESS_KEY` previously
+  // fell through to allow (#650 D4-2, #770 D4-2).
+  //
+  // The negative lookbehind exempts literal-NAME references — backslash-escaped
+  // (`\$HW_*`) or single-quoted (`'$HW_*'`, which the shell never expands) —
+  // while unescaped `$HW_*` is a potential expansion/dump regardless of the
+  // command. No command-name whitelist, so no false negative (#650 review).
+  for (const candidate of candidates) {
+    if (
+      /(?<!['\\])\$\{?(?:HUAWEICLOUD|HWC|HW|OS)_(?:SECRET_ACCESS_KEY|ACCESS_KEY|SECRET_KEY|SECURITY_TOKEN)/i.test(
+        candidate,
+      ) ||
+      /(?:^|\s)printenv\s+(?:HUAWEICLOUD|HWC|HW|OS)_(?:SECRET_ACCESS_KEY|ACCESS_KEY|SECRET_KEY|SECURITY_TOKEN)/i.test(
+        candidate,
+      )
+    ) {
+      return {
+        decision: 'deny',
+        risk: 'credential',
+        reason: 'Printing cloud credential environment variables is blocked.',
+      };
+    }
+  }
+
+  // hcloud command detection — extract the subcommand starting from the hcloud
+  // keyword so prompt-injection prefixes ("Ignore previous instructions and
+  // hcloud …") and shell wrappers ("bash -c \"hcloud …\"") are classified
+  // correctly (#758 D4-16 + D4-11). Check all candidates (original + inners).
+  for (const candidate of candidates) {
+    const hcloudSubcommand = extractHcloudSubcommand(candidate);
+    if (hcloudSubcommand) {
+      return classifyHcloudArgs(splitSimpleCommand(hcloudSubcommand), { ...options, rawCommand: text });
+    }
+  }
+
+  if (/ShowSecretVersion|ShowSecret|GetSecretValue|secret_string|secret_binary/i.test(text)) {
+    return {
+      decision: 'deny',
+      risk: 'secret',
+      reason: 'Direct secret value retrieval patterns are blocked.',
+    };
+  }
+
+  return applyRawCommandRiskRules(
+    {
+      decision: 'allow',
+      risk: 'not_huaweicloud',
+      reason: 'No Huawei Cloud safety rule matched.',
+    },
+    text,
+    options,
+  );
+}
+
+export function assertAllowed(result) {
+  if (result.decision === 'deny') {
+    const error = new Error(result.reason);
+    error.policy = result;
+    throw error;
+  }
+  return result;
+}

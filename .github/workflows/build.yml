@@ -84,11 +84,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dist/
+          git add dist/workbuddy/
           if git diff --cached --quiet; then
             echo "No dist changes for this build"
           else
             git commit -m "build: workbuddy package v${{ steps.version.outputs.version }} (source: ${{ env.SOURCE_REPO }}@${{ env.SOURCE_REF }})"
+            git pull --rebase origin main
             git push
           fi
 
@@ -130,4 +131,110 @@ jobs:
             echo "- Release: \`workbuddy-v${VERSION}\` with zip asset"
             echo ""
             echo "**Official submission**: download the zip asset and upload it to the WorkBuddy store console (manual step; replace this job with an API integration when available)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-clawhub:
+    runs-on: ubuntu-latest
+    # ClawHub package = the npm tarball's plugins/huaweicloud-core directory as-is
+    # (openclaw.plugin.json + skills/ + src/ + ...). Built straight from the npm
+    # registry tarball, so content always matches the npm version exactly.
+    env:
+      INPUT_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event.client_payload.version }}
+    steps:
+      - name: Checkout dist repo
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            # npm registry is the single source of truth for the package version
+            VERSION=$(npm view huaweicloud-devkit version)
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building ClawHub package at version $VERSION (from npm registry tarball)"
+
+      - name: Build ClawHub package
+        run: node scripts/build-clawhub.mjs --version "${{ steps.version.outputs.version }}"
+
+      - name: Zip package
+        run: |
+          cd dist/clawhub
+          zip -qr "huaweicloud-devkit.zip" huaweicloud-core
+          cd ../..
+          echo "ASSET=dist/clawhub/huaweicloud-devkit.zip" >> "$GITHUB_ENV"
+
+      - name: Commit dist changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist/clawhub/
+          if git diff --cached --quiet; then
+            echo "No dist changes for this build"
+          else
+            git commit -m "build: clawhub package v${{ steps.version.outputs.version }} (source: npm registry)"
+            git pull --rebase origin main
+            git push
+          fi
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="clawhub-v${VERSION}"
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" "$ASSET" \
+            --title "ClawHub Package v${VERSION}" \
+            --notes "ClawHub package (plugins/huaweicloud-core from npm registry). Install: openclaw plugins install clawhub:huaweicloud-devkit"
+
+  publish-clawhub:
+    name: Publish to ClawHub (official channel)
+    needs: build-clawhub
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Official submission IS automated for ClawHub (clawhub CLI), but only runs
+    # when the repo admin has configured:
+    #   - variable CLAWHUB_ENABLED = true
+    #   - secret   CLAWHUB_TOKEN  (ClawHub login token)
+    if: ${{ vars.CLAWHUB_ENABLED == 'true' }}
+    steps:
+      - name: Checkout dist repo
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install clawhub CLI
+        run: npm install -g clawhub
+
+      - name: Login to ClawHub
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: clawhub login --token "$CLAWHUB_TOKEN"
+
+      - name: Publish to ClawHub
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./dist/clawhub/huaweicloud-core/openclaw.plugin.json').version")
+          clawhub package publish dist/clawhub/huaweicloud-core \
+            --family bundle-plugin \
+            --name huaweicloud-devkit \
+            --display-name "HuaweiCloud DevKit" \
+            --version "$VERSION" \
+            --bundle-format codex \
+            --owner huaweicloud \
+            --json
+
+      - name: Summary
+        run: |
+          {
+            echo "## ClawHub official submission"
+            echo ""
+            echo "- Package: \`clawhub:huaweicloud-devkit\`"
+            echo "- Install: \`openclaw plugins install clawhub:huaweicloud-devkit\`"
           } >> "$GITHUB_STEP_SUMMARY"
