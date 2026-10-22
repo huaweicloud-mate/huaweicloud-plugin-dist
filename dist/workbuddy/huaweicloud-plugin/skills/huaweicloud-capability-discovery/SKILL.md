@@ -5,7 +5,6 @@ description: Discover Huawei Cloud capabilities for an agent task. Use when the 
 
 # Huawei Cloud Capability Discovery
 
-
 **STOP - Do not answer from general knowledge.** Follow the procedure below.
 
 Use this skill to turn vague developer intent into a precise Huawei Cloud capability path.
@@ -20,7 +19,31 @@ Use this skill to turn vague developer intent into a precise Huawei Cloud capabi
 6. Prefer SDK docs when the deliverable is application code.
 7. Prefer MCP only when an approved Huawei Cloud MCP tool exists for the needed operation.
 8. Treat Terraform as a secondary V1 path for reviewed IaC, not the default.
-9. When no built-in devkit skill matches, browse the community skill marketplace at https://github.com/huaweicloud/huaweicloud-skills. Fetch the index from https://raw.githubusercontent.com/huaweicloud/huaweicloud-skills/master/skills-index/index.json.
+9. When no built-in devkit skill matches:
+   a. Search: use `huaweicloud_search_marketplace` to find a matching skill in the community marketplace
+   b. Install: use the `installCommand` returned by the marketplace tool — it downloads the skill repo ZIP over HTTP and copies the skill folder into the agent skills directory. **No git is required** (`npx skills add` needs git on PATH, which is often absent on Windows Server/sandbox environments). Replace the `<your-agent-skills-dir>` placeholder with this agent's skills directory (Claude Code `~/.claude/skills`, OpenCode `~/.config/opencode/skills`, Cursor `~/.cursor/skills`) before running. If the command reports `SKILL_SRC_NOT_FOUND` (mis-pathed skill location) or the HTTP download itself fails, follow the returned `installHint`: download `https://github.com/huaweicloud/huaweicloud-skills/archive/refs/heads/master.zip` manually, extract it, copy the skill folder, and confirm to the user how it was installed. Never auto-install git just to fetch a skill.
+   c. Execute: load the installed skill and follow its procedure
+10. When the deliverable is a PPT, architecture diagram (draw.io), or frontend page that needs official Huawei Cloud service logos, use the `huaweicloud_get_service_icon` MCP tool to get logo URLs from the official Icons library instead of guessing or hotlinking unofficial images.
+
+## Scenario Routing
+
+Match the scenario before picking a service. For "deploy a web app" requests, layer the recommendation instead of defaulting to a production service:
+
+| Scenario                                                             | Recommended path                                                                                                                                                                      |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| hello world / prototype / demo / temporary preview (free, quick try) | `huawei-sandbox` first — temporary runtime + public URL (runtime lifetime not exposed via API); credential expiry see `expiresAt` from `connect`/`credentials`, zero billed resources |
+| production / long-term / custom domain / high availability           | `huawei-functiongraph` / `huawei-ecs` (or `huawei-cce` for containers)                                                                                                                |
+
+Route to the sandbox when the developer signals free/quick preview intent ("免费", "快速", "预览", "hello world", "原型", "演示"); route to production services only when production-grade hosting is explicitly required.
+
+## Official Service Logos
+
+- Use `huaweicloud_get_service_icon` with the service name, alias, or Chinese name (e.g. `ecs`, `obs`, `modelarts`, `对象存储`). It returns the official CDN logo URL (`logo.source_url`), category, and product page link from https://open.huaweicloud.com/openplatform/icons.html.
+- Prefer `logo.source_url` for web deliverables and the Icons library search page for browsing; do not scrape logos from third-party sites.
+
+## Deployment Target Options (MANDATORY — use the `question` tool)
+
+When the intent is to **deploy, host, or preview a web app or static website** and the developer has not named a target, do NOT default to OBS or any single service. **NEVER infer or default the target** when it is unstated. You MUST present the options via the `question` tool and obtain an explicit choice before calling any deploy tool, recommending the sandbox first: ① huawei-sandbox (recommended — temporary runtime, instant preview URL) ② huawei-obs (long-term static hosting/CDN; 需提前准备好自定义域名) ③ huawei-ecs (需搭配弹性公网IP/EIP 才能公网访问) ④ huawei-cce. Only follow an explicit target when the developer names one; "部署到华为云" alone is NOT a named target — still ask.
 
 ## Region Intent
 

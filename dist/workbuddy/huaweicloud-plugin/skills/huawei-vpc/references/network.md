@@ -4,15 +4,22 @@
 
 Subnets without DNS configuration will fail cloud-init. Use these DNS addresses:
 
-| Region | Primary DNS | Secondary DNS |
-|--------|------------|---------------|
-| cn-north-1 | 100.125.1.250 | 100.125.129.250 |
-| cn-north-4 | 100.125.1.250 | 100.125.129.250 |
-| cn-east-3 | 100.125.1.250 | 100.125.129.250 |
-| cn-south-1 | 100.125.1.250 | 100.125.129.250 |
-| ap-southeast-3 | 100.125.1.250 | 100.125.129.250 |
+| Region         | Primary DNS   | Secondary DNS   |
+| -------------- | ------------- | --------------- |
+| cn-north-1     | 100.125.1.250 | 100.125.21.250  |
+| cn-north-4     | 100.125.1.250 | 100.125.129.250 |
+| cn-east-3      | 100.125.1.250 | 100.125.64.250  |
+| cn-south-1     | 100.125.1.250 | 100.125.136.29  |
+| ap-southeast-3 | 100.125.1.250 | 100.125.128.250 |
+
+Get the authoritative values for any region at runtime (preferred over this table):
+
+```bash
+hcloud DNS ListNameServers --type=private --region=<region>
+```
 
 **Subnet create with DNS**:
+
 ```bash
 hcloud VPC CreateSubnet \
   --subnet.name=<name> \
@@ -20,20 +27,20 @@ hcloud VPC CreateSubnet \
   --subnet.cidr=10.50.1.0/24 \
   --subnet.gateway_ip=10.50.1.1 \
   --subnet.availability_zone=<az> \
-  --subnet.dnsList.1=100.125.1.250 \
-  --subnet.dnsList.2=100.125.129.250
+  --subnet.dnsList.1=<dns1> \
+  --subnet.dnsList.2=<dns2>
 ```
 
 ## Nested Prefix Summary
 
 KooCLI 7.x VPC API requires nested prefixes:
 
-| Resource | Create Param Prefix | Example |
-|----------|---------------------|---------|
-| VPC | `--vpc.` | `--vpc.name=my-vpc --vpc.cidr=192.168.0.0/16` |
-| Subnet | `--subnet.` | `--subnet.name=web --subnet.vpc_id=<id> --subnet.cidr=192.168.1.0/24` |
-| Security Group | `--security_group.` | `--security_group.name=sg-web` |
-| SG Rule | `--security_group_rule.` | `--security_group_rule.direction=ingress` |
+| Resource       | Create Param Prefix      | Example                                                               |
+| -------------- | ------------------------ | --------------------------------------------------------------------- |
+| VPC            | `--vpc.`                 | `--vpc.name=my-vpc --vpc.cidr=192.168.0.0/16`                         |
+| Subnet         | `--subnet.`              | `--subnet.name=web --subnet.vpc_id=<id> --subnet.cidr=192.168.1.0/24` |
+| Security Group | `--security_group.`      | `--security_group.name=sg-web`                                        |
+| SG Rule        | `--security_group_rule.` | `--security_group_rule.direction=ingress`                             |
 
 ## EIP Management
 
@@ -47,7 +54,7 @@ hcloud EIP AssociatePublicips --publicip_id=<id> \
   --publicip.associate_instance_id=<port-id> --publicip.associate_instance_type=PORT
 
 # Unbind
-hcloud EIP DisassociatePublicip --publicip_id=<id>
+hcloud EIP DisassociatePublicips --publicip_id=<id>
 
 # List
 hcloud EIP ListPublicips

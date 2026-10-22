@@ -31,13 +31,9 @@ hcloud OBS chattri obs://my-static-site -acl=public-read
 hcloud OBS chattri obs://my-static-site/ -r -f -acl=public-read
 
 # 5. Configure static website hosting
-# KooCLI OBS does NOT support this. Use one of:
-# Option A — REST API:
-#   PUT /?website HTTP/1.1
-#   Host: my-static-site.obs.cn-north-4.myhuaweicloud.com
-#   Body: {"IndexDocument": {"Suffix": "index.html"}, "ErrorDocument": {"Key": "error.html"}}
-#   (requires AK/SK signature)
-# Option B — Huawei Cloud Console:
+# KooCLI OBS does NOT support this. Use the MCP tool (handles AWS4 signing internally):
+# action=set, bucket=<bucket>, region=<region>, indexDocument=index.html, errorDocument=404.html
+# Or use Huawei Cloud Console:
 #   Console → OBS → Bucket → Basic Settings → Static Website Hosting
 
 # 6. Verify
@@ -54,3 +50,5 @@ curl http://my-static-site.obs-website.cn-north-4.myhuaweicloud.com
 - **Always use `-f`**: Without `-f`, obsutil prompts "Please input (y/n)" on large uploads — Agent hangs (TIMEOUT).
 - **Use `-flat` for root files**: Without `-flat`, `dist/` becomes `bucket/dist/` prefix. Static sites need files at bucket root.
 - **Objects don't inherit bucket ACL**: Setting bucket to public-read does NOT make individual objects public. You must also set object-level ACL with `chattri obs://<bucket>/ -r -f -acl=public-read` or use `-acl=public-read` during upload.
+- **`mb` may return a non-zero exit code even on success**: `hcloud OBS mb` occasionally exits with code 6 (or other non-zero) while the bucket is actually created — the output still contains a request id and subsequent `cp`/`chattri` succeed. Judge success by the response text (request id) and confirm with `hcloud OBS ls` / `stat obs://<bucket>`, NOT the exit code alone. `mb` is idempotent, so re-issuing the same bucket name is harmless.
+- **Website endpoint is eventually consistent (~1 min)**: after `PUT /?website` returns 200, the website endpoint (`http://<bucket>.obs-website.<region>.myhuaweicloud.com`) may return 404 `NoSuchWebsiteConfiguration` for up to ~1 minute. This is propagation delay, NOT a configuration failure. Verify immediately via the object URL (`https://<bucket>.obs.<region>.myhuaweicloud.com/index.html`, works before the website endpoint), then poll the website endpoint with a short backoff until it returns 200 before reporting success.

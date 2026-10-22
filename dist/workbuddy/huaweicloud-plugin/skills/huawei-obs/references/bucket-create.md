@@ -4,14 +4,14 @@ From Huawei Cloud marketplace best practices.
 
 ## Naming Rules
 
-| Rule | Detail |
-|------|--------|
-| Length | 3-63 characters |
-| Characters | Lowercase letters, numbers, `-`, `.` |
-| No IP format | Cannot be IP address pattern |
-| No leading/trailing `-` or `.` | Start and end must be alphanumeric |
-| No `..` | Adjacent dots forbidden |
-| No `-.` or `.-` | Adjacent dot-hyphen combos forbidden |
+| Rule                           | Detail                               |
+| ------------------------------ | ------------------------------------ |
+| Length                         | 3-63 characters                      |
+| Characters                     | Lowercase letters, numbers, `-`, `.` |
+| No IP format                   | Cannot be IP address pattern         |
+| No leading/trailing `-` or `.` | Start and end must be alphanumeric   |
+| No `..`                        | Adjacent dots forbidden              |
+| No `-.` or `.-`                | Adjacent dot-hyphen combos forbidden |
 
 ## Create Bucket
 
@@ -19,11 +19,11 @@ From Huawei Cloud marketplace best practices.
 hcloud OBS mb obs://<bucket> [-acl=xxx] [-location=<r>] [-sc=xxx]
 ```
 
-| Option | Values | Default |
-|--------|--------|---------|
-| `-acl` | private, public-read, public-read-write | private |
-| `-location` | cn-south-1, cn-north-4, ... | config default |
-| `-sc` | standard, warm, cold, deep-archive | standard |
+| Option      | Values                                  | Default        |
+| ----------- | --------------------------------------- | -------------- |
+| `-acl`      | private, public-read, public-read-write | private        |
+| `-location` | cn-south-1, cn-north-4, ...             | config default |
+| `-sc`       | standard, warm, cold, deep-archive      | standard       |
 
 ## Quick Verify
 
@@ -34,12 +34,12 @@ hcloud OBS stat obs://<bucket>
 
 ## Storage Class Guide
 
-| Class | Access Frequency | Min Storage | Retrieval Cost |
-|-------|-----------------|-------------|----------------|
-| standard | Frequent | None | No |
-| warm | Infrequent | 30 days | Yes |
-| cold | Rare | 90 days | Yes |
-| deep-archive | Archive | 180 days | Yes |
+| Class        | Access Frequency | Min Storage | Retrieval Cost |
+| ------------ | ---------------- | ----------- | -------------- |
+| standard     | Frequent         | None        | No             |
+| warm         | Infrequent       | 30 days     | Yes            |
+| cold         | Rare             | 90 days     | Yes            |
+| deep-archive | Archive          | 180 days    | Yes            |
 
 ## Critical Rules
 
@@ -47,3 +47,4 @@ hcloud OBS stat obs://<bucket>
 - Region is immutable after creation
 - ACL does NOT cascade to objects — set both bucket-level and object-level access
 - OBS uses separate credentials (`~/.obsutilconfig`, configure via `hcloud OBS config -i`)
+- **Return code is unreliable for `mb`**: it can exit non-zero (e.g. 6) while the bucket is actually created (output still carries a request id). Confirm with `stat obs://<bucket>` / `OBS ls` instead of the exit code; re-running `mb` on the same name is idempotent.

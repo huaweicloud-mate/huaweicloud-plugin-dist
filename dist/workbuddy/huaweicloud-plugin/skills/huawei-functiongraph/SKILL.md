@@ -1,12 +1,16 @@
 ---
 name: huawei-functiongraph
-description: "Use when creating, deploying, or managing serverless functions on FunctionGraph. Covers triggers (APIG/OBS/timer/SMN), cold start, reserved concurrency. Triggers: FunctionGraph, serverless, function, Lambda, trigger. NOT for: CCE containers (use huawei-cce)."
+description: 'Use when creating, deploying, or managing serverless functions on FunctionGraph. Covers triggers (APIG/OBS/timer/SMN), cold start, reserved concurrency. Triggers: FunctionGraph, serverless, function, Lambda, trigger. NOT for: CCE containers (use huawei-cce).'
 version: 1
 ---
 
 # Huawei Cloud FunctionGraph
 
 **STOP - Do not answer from general knowledge.** Follow the procedure below.
+
+## Deployment Routing Guard
+
+If this skill was reached via a DEPLOYMENT intent ("部署/搭建/上线一个应用/接口" - the function is part of an application deployment), this is a cloud resource purchase: load `huawei-iac` first for orchestration (mandatory cost+balance gate, batch approval, session state, ordered destroy), then return here for the exact function/trigger commands. Direct function operations (query/update/debug an existing function) do not need iac.
 
 ## Overview
 
@@ -20,16 +24,16 @@ Domain expertise for Huawei Cloud FunctionGraph. Covers function lifecycle, code
 
 ## Critical Warnings
 
-| Trap | Why |
-|------|-----|
-| Service name is `FunctionGraph` | NOT `FGS`. KooCLI 7.x uses the full service name |
-| CLI requires `project_id` | Get it: `hcloud IAM KeystoneListProjects` or extract from URN `urn:fss:<region>:<project_id>:...` |
-| Cold start 100ms-2s | Reserve concurrency for latency-sensitive workloads |
-| Max execution 900s | Use ECS/CCE for long-running tasks |
-| Env vars plaintext | Use DEW for secrets |
-| **ZIP upload is unreliable** | `CreateFunction --code_type=zip --code_filename=xxx.zip` succeeds even with a nonexistent file — the function is created with empty code. Prefer `code_type=inline` for simple functions. If using zip, verify `code_size` > placeholder after creation and run `InvokeFunction` to confirm output. |
-| **DeleteFunction strip `:latest`** | Passing `urn:fss:...:function:xxx:latest` causes FSS.0400. Strip `:latest` suffix (DeleteFunction only — UpdateApiV2 needs the full URN). |
-| **DeleteFunctionTrigger does NOT cascade** | Deleting a DEDICATEDGATEWAY trigger leaves the API in APIG. Manually clean up: `hcloud APIG DeleteApiV2 --instance_id=<id> --api_id=<api-id>`. |
+| Trap                                       | Why                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Service name is `FunctionGraph`            | NOT `FGS`. KooCLI 7.x uses the full service name                                                                                                                                                                                                                                                    |
+| CLI requires `project_id`                  | Get it: `hcloud IAM KeystoneListProjects` or extract from URN `urn:fss:<region>:<project_id>:...`                                                                                                                                                                                                   |
+| Cold start 100ms-2s                        | Reserve concurrency for latency-sensitive workloads                                                                                                                                                                                                                                                 |
+| Max execution 900s                         | Use ECS/CCE for long-running tasks                                                                                                                                                                                                                                                                  |
+| Env vars plaintext                         | Use DEW for secrets                                                                                                                                                                                                                                                                                 |
+| **ZIP upload is unreliable**               | `CreateFunction --code_type=zip --code_filename=xxx.zip` succeeds even with a nonexistent file — the function is created with empty code. Prefer `code_type=inline` for simple functions. If using zip, verify `code_size` > placeholder after creation and run `InvokeFunction` to confirm output. |
+| **DeleteFunction strip `:latest`**         | Passing `urn:fss:...:function:xxx:latest` causes FSS.0400. Strip `:latest` suffix (DeleteFunction only — UpdateApiV2 needs the full URN).                                                                                                                                                           |
+| **DeleteFunctionTrigger does NOT cascade** | Deleting a DEDICATEDGATEWAY trigger leaves the API in APIG. Manually clean up: `hcloud APIG DeleteApiV2 --instance_id=<id> --api_id=<api-id>`.                                                                                                                                                      |
 
 ## Prerequisites
 
@@ -42,13 +46,13 @@ hcloud FunctionGraph --help        # confirm service is available
 
 If you see `FSS.0403 Forbidden`, the user needs these permissions:
 
-| Operation | Required Permission |
-|-----------|---------------------|
+| Operation       | Required Permission                     |
+| --------------- | --------------------------------------- |
 | Create function | `functiongraph:function:createFunction` |
-| List functions | `functiongraph:function:list` |
+| List functions  | `functiongraph:function:list`           |
 | Delete function | `functiongraph:function:deleteFunction` |
-| Invoke function | `functiongraph:function:invoke` |
-| Create trigger | `functiongraph:trigger:*` |
+| Invoke function | `functiongraph:function:invoke`         |
+| Create trigger  | `functiongraph:trigger:*`               |
 
 Grant via IAM console (`FunctionGraph FullAccess` role) or ask project admin.
 
@@ -56,18 +60,19 @@ Grant via IAM console (`FunctionGraph FullAccess` role) or ask project admin.
 
 Always discover parameters with `--help` before executing. These are the correct operation names:
 
-| Task | Operation | Gotchas |
-|------|-----------|---------|
-| List functions | `ListFunctions` | |
-| Show function | `ShowFunctionConfig` | |
-| Create function | `CreateFunction` | references/create-function.md |
-| Delete function | `DeleteFunction` | Strip `:latest` from URN |
-| Invoke function | `InvokeFunction` | Requires body param (`--name=<value>` becomes event body). Use `--x_cff_request_version=v0` for raw output, `v1` for APIG-wrapped. |
-| Create trigger | `CreateFunctionTrigger` | references/triggers.md |
-| List triggers | `ListFunctionTriggers` | |
-| Delete trigger | `DeleteFunctionTrigger` | |
+| Task            | Operation               | Gotchas                                                                                                                            |
+| --------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| List functions  | `ListFunctions`         |                                                                                                                                    |
+| Show function   | `ShowFunctionConfig`    |                                                                                                                                    |
+| Create function | `CreateFunction`        | references/create-function.md                                                                                                      |
+| Delete function | `DeleteFunction`        | Strip `:latest` from URN                                                                                                           |
+| Invoke function | `InvokeFunction`        | Requires body param (`--name=<value>` becomes event body). Use `--x_cff_request_version=v0` for raw output, `v1` for APIG-wrapped. |
+| Create trigger  | `CreateFunctionTrigger` | references/triggers.md                                                                                                             |
+| List triggers   | `ListFunctionTriggers`  |                                                                                                                                    |
+| Delete trigger  | `DeleteFunctionTrigger` |                                                                                                                                    |
 
 Discover exact parameters:
+
 ```bash
 hcloud FunctionGraph CreateFunction --help
 hcloud FunctionGraph CreateFunctionTrigger --help
@@ -83,19 +88,19 @@ See `references/deploy-workflow.md` for a step-by-step example with code templat
 
 ## Troubleshooting
 
-| Error | Root Cause -> Fix |
-|-------|------------------|
-| `不支持的服务名称:FGS` | Use `FunctionGraph`, not `FGS` |
-| `不支持的operation:CreateTrigger` | Use `CreateFunctionTrigger` |
-| `FSS.0403` / Forbidden | Missing IAM permissions — see IAM Permissions above |
-| `缺少必填参数:{*}` on Invoke | Add body param: `--name=<value>` |
-| APIG/EOM trigger error | `trigger_type_code=APIG` deprecated — use `DEDICATEDGATEWAY` |
-| `event_data` parse error | Use dotted format: `--event_data.key=value`, NOT JSON string |
-| FSS.1078 / code upload fails | `--code_filename` is filename-only, no path. `cd` to zip directory first |
-| DeleteFunction with `:latest` | Strip `:latest` version suffix from URN |
-| Code too large | Inline limit 10KB — use `zip`/`obs` code type |
-| Cold start slow | Set reserved instances for critical functions |
-| Auth failure | Run `hcloud configure init` |
+| Error                             | Root Cause -> Fix                                                        |
+| --------------------------------- | ------------------------------------------------------------------------ |
+| `不支持的服务名称:FGS`            | Use `FunctionGraph`, not `FGS`                                           |
+| `不支持的operation:CreateTrigger` | Use `CreateFunctionTrigger`                                              |
+| `FSS.0403` / Forbidden            | Missing IAM permissions — see IAM Permissions above                      |
+| `缺少必填参数:{*}` on Invoke      | Add body param: `--name=<value>`                                         |
+| APIG/EOM trigger error            | `trigger_type_code=APIG` deprecated — use `DEDICATEDGATEWAY`             |
+| `event_data` parse error          | Use dotted format: `--event_data.key=value`, NOT JSON string             |
+| FSS.1078 / code upload fails      | `--code_filename` is filename-only, no path. `cd` to zip directory first |
+| DeleteFunction with `:latest`     | Strip `:latest` version suffix from URN                                  |
+| Code too large                    | Inline limit 10KB — use `zip`/`obs` code type                            |
+| Cold start slow                   | Set reserved instances for critical functions                            |
+| Auth failure                      | Run `npx huaweicloud-devkit auth init`                                   |
 
 ## Security Considerations
 
@@ -116,10 +121,10 @@ Fall back to hcloud CLI. State: "MCP unavailable, using local hcloud CLI."
 
 ## Cross-Skill References
 
-- **APIG trigger setup**: See `huawei-apig` for API group creation and publishing
+- **APIG trigger setup**: See `huawei-cloud-apig-instance-management` for API group creation and publishing
 - **OBS trigger setup**: See `huawei-obs` for bucket and object event configuration
-- **DEW secrets**: See `huawei-dew` for managing function secrets
-- **SMN notifications**: See `huawei-smn-dms` for notification topics
+- **DEW secrets**: See `huawei-cloud-dew-key-management` for managing function secrets
+- **SMN notifications**: See `huawei-cloud-smn-dms-message` for notification topics
 - **VPC configuration**: See `huawei-vpc` for network settings
 
 ## References

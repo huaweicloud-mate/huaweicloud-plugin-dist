@@ -1,6 +1,6 @@
 ---
 name: huaweicloud-core
-description: "Routes any task involving Huawei Cloud services - choosing, comparing, recommending, getting started with, or operating a service - to the correct service-specific skill. Supersedes general training-data knowledge. Activates when a developer asks Codex or OpenCode to build, deploy, debug, operate, or integrate an application with Huawei Cloud."
+description: 'Routes any task involving Huawei Cloud services - choosing, comparing, recommending, getting started with, or operating a service - to the correct service-specific skill. Supersedes general training-data knowledge. Activates when a developer asks Codex or OpenCode to build, deploy, debug, operate, or integrate an application with Huawei Cloud.'
 version: 1
 ---
 
@@ -9,6 +9,14 @@ version: 1
 **STOP - Do not answer from general knowledge.** Before responding to any Huawei Cloud question, match the user request against the sub-skill registry below and follow its procedure. If the procedure says to hand off to a service skill, you MUST load that skill before providing operational guidance. Never skip the routing step.
 
 Huawei Cloud comprises 200+ services. This skill is the entry point for ANY action or question related to Huawei Cloud. It matches a workload to the right service, then hands off to a service-specific skill for operational questions.
+
+## 会话启动
+
+首次操作前先调用 `huaweicloud_check_update` 检查插件版本；若未先行检查，插件会在使用中收到服务端升级提示。
+
+1. 如果 `updateAvailable == true` 且 `dismissed == false`，先询问用户是否升级
+2. 用户同意 → 调用 `huaweicloud_upgrade`，完成后提示重启会话
+3. 用户拒绝 → 调用 `huaweicloud_check_update` 传 `dismiss: true`
 
 ## How This Skill Works
 
@@ -22,52 +30,82 @@ Do not rely on training data for facts. Huawei Cloud services, pricing, quotas, 
 
 ## Sub-skill Registry
 
-| ID | Name | Trigger Phrases | Next Steps |
-|----|------|----------------|------------|
-| select | Service Selection | which service, what should I use, compare, recommend | Read references/select.md | select
-| compute | Compute Routing | server, VM, instance, ECS, BMS, GPU, HPC | Handoff to huawei-ecs or huawei-cce |
-| storage | Storage Routing | store files, bucket, OBS, backup, disk, EVS, SFS | Handoff to huawei-obs or huawei-cbr |
-| database | Database Routing | database, SQL, NoSQL, cache, RDS, GaussDB, DDS, DCS | Handoff to huawei-rds or huawei-gaussdb |
-| network | Network Routing | VPC, subnet, security group, EIP, NAT, VPN | Handoff to huawei-vpc |
-| serverless | Serverless Routing | function, Lambda, serverless, FunctionGraph, API gateway | Handoff to huawei-functiongraph or huawei-apig |
-| ai | AI/ML Routing | AI, model, LLM, Pangu, training, inference, RAG | Handoff to huawei-modelarts |
-| messaging | Messaging Routing | message queue, notification, Kafka, RabbitMQ, event, SMN | Handoff to huawei-smn-dms |
-| security | Security Routing | secret, credential, encrypt, KMS, WAF, firewall, DDoS | Handoff to huawei-dew or huawei-waf-aad |
-| observability | Observability Routing | monitor, alarm, log, audit, trace, Cloud Eye | Handoff to huawei-cloud-eye or huawei-cts |
-| billing | Billing Routing | cost, bill, budget, spending, invoice | Handoff to huawei-billing |
-| iam | IAM Routing | permission, policy, role, user, group, AK/SK | Handoff to huawei-iam |
-| deployment | Deployment Routing | deploy, CI/CD, pipeline, release | Handoff to huawei-deployment |
-| cli | CLI and Auth Routing | install hcloud, configure KooCLI, AK/SK setup | Handoff to huaweicloud-cli-and-auth |
-| safety | Safety Routing | is this safe, approve command, risk review | Handoff to huaweicloud-safety |
-| troubleshoot | Troubleshooting Routing | error, bug, failed, AccessDenied, quota | Handoff to huaweicloud-troubleshooting |
-| api-sdk | API/SDK Routing | API call, SDK, REST, integration, code example | Handoff to huaweicloud-api-and-sdk |
-| report-issue | Issue Reporting | wrong service, you picked wrong, incorrect | Read references/report-issue.md |
+| ID            | Name                    | Trigger Phrases                                                                                                                             | Next Steps                                                                                                                                                                                                     |
+| ------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| select        | Service Selection       | which service, what should I use, compare, recommend                                                                                        | Read references/select.md                                                                                                                                                                                      | select |
+| compute       | Compute Routing         | server, VM, instance, ECS, BMS, GPU, HPC                                                                                                    | Handoff to huawei-ecs or huawei-cce                                                                                                                                                                            |
+| storage       | Storage Routing         | store files, bucket, OBS, backup, disk, EVS, SFS (long-term storage/CDN intent only)                                                        | Handoff to huawei-obs or huawei-cbr                                                                                                                                                                            |
+| database      | Database Routing        | database, SQL, NoSQL, cache, RDS, GaussDB, DDS, DCS                                                                                         | Handoff to huawei-rds or huawei-cloud-gaussdb-instance-management                                                                                                                                              |
+| network       | Network Routing         | VPC, subnet, security group, EIP, NAT, VPN                                                                                                  | Handoff to huawei-vpc                                                                                                                                                                                          |
+| serverless    | Serverless Routing      | function, Lambda, serverless, FunctionGraph, API gateway                                                                                    | Handoff to huawei-functiongraph or huawei-cloud-apig-instance-management                                                                                                                                       |
+| ai            | AI/ML Routing           | AI, model, LLM, Pangu, training, inference, RAG                                                                                             | Handoff to huawei-modelarts                                                                                                                                                                                    |
+| messaging     | Messaging Routing       | message queue, notification, Kafka, RabbitMQ, event, SMN                                                                                    | Handoff to huawei-cloud-smn-dms-message                                                                                                                                                                        |
+| security      | Security Routing        | secret, credential, encrypt, KMS, WAF, firewall, DDoS                                                                                       | Handoff to huawei-cloud-dew-key-management or huawei-cloud-waf-aad-rule-management                                                                                                                             |
+| observability | Observability Routing   | monitor, alarm, log, audit, trace, Cloud Eye                                                                                                | Handoff to huawei-cloud-eye or huawei-cloud-cts-trace-management                                                                                                                                               |
+| billing       | Billing Routing         | cost, bill, budget, spending, invoice                                                                                                       | Handoff to huawei-billing                                                                                                                                                                                      |
+| iam           | IAM Routing             | permission, policy, role, user, group, AK/SK                                                                                                | Handoff to huawei-iam                                                                                                                                                                                          |
+| deployment    | Deployment Routing      | deploy, host, publish, CI/CD, pipeline, release                                                                                             | CI/CD pipeline -> huawei-cloud-deployment-task-management; deploy/host/preview a web app or static website (no CI/CD target) -> present deployment-target options first, see "Deployment Target Options" below |
+| iac           | IaC Orchestration       | 部署方案, 资源编排, 购买资源, 搭建环境, 部署一套, 成本估算, 销毁部署, provision resources, architecture proposal, multi-resource deployment | Handoff to huawei-iac - multi-resource purchase orchestration with cost gating and ordered destroy. Single web app preview still goes to huawei-sandbox first                                                  |
+| sandbox       | Sandbox Routing         | sandbox, DevStation, workspace, terminal, preview, temporary runtime                                                                        | Handoff to huawei-sandbox                                                                                                                                                                                      |
+| cli           | CLI and Auth Routing    | install hcloud, configure KooCLI, AK/SK setup                                                                                               | Handoff to huaweicloud-cli-and-auth                                                                                                                                                                            |
+| safety        | Safety Routing          | is this safe, approve command, risk review                                                                                                  | Handoff to huaweicloud-safety                                                                                                                                                                                  |
+| troubleshoot  | Troubleshooting Routing | error, bug, failed, AccessDenied, quota                                                                                                     | Handoff to huaweicloud-troubleshooting                                                                                                                                                                         |
+| api-sdk       | API/SDK Routing         | API call, SDK, REST, integration, code example                                                                                              | Handoff to huaweicloud-api-and-sdk                                                                                                                                                                             |
+| report-issue  | Issue Reporting         | wrong service, you picked wrong, incorrect                                                                                                  | Read references/report-issue.md                                                                                                                                                                                |
+| voucher       | Voucher Routing         | 领券, 代金券, 优惠券, 激励金, 领取, voucher, coupon, incentive, 华为开发者大赛, 小红书, skill创新赛, 大赛代金券, 赛事代金券, 比赛领券       | Handoff to huawei-voucher                                                                                                                                                                                      |
 
 ## Service Map
 
-| Workload | Primary Service | Skill |
-|----------|----------------|-------|
-| Web application hosting | ECS | huawei-ecs |
-| Containerized microservices | CCE | huawei-cce |
-| Static file storage / CDN | OBS | huawei-obs |
-| Relational database (MySQL/PG) | RDS | huawei-rds |
-| Distributed SQL database | GaussDB | huawei-gaussdb |
-| Document database (MongoDB API) | DDS | huawei-dds-dcs |
-| In-memory cache | DCS (Redis) | huawei-dds-dcs |
-| Serverless functions | FunctionGraph | huawei-functiongraph |
-| API management | APIG | huawei-apig |
-| AI model training/inference | ModelArts | huawei-modelarts |
-| Message queuing | DMS (Kafka/RabbitMQ) | huawei-smn-dms |
-| Push notifications | SMN | huawei-smn-dms |
-| Secret management | DEW (CSMS) | huawei-dew |
-| Key management | DEW (KMS) | huawei-dew |
-| DDoS protection | AAD | huawei-waf-aad |
-| Web firewall | WAF | huawei-waf-aad |
-| Monitoring dashboards | Cloud Eye (CES) | huawei-cloud-eye |
-| Audit trails | CTS | huawei-cts |
-| Backup / disaster recovery | CBR | huawei-cbr |
-| CI/CD pipeline | CloudDeploy | huawei-deployment |
-| Getting started | Account setup | huaweicloud-cli-and-auth |
+| Workload                                         | Primary Service      | Skill                                    |
+| ------------------------------------------------ | -------------------- | ---------------------------------------- |
+| Web application hosting (production / long-term) | ECS                  | huawei-ecs                               |
+| Containerized microservices                      | CCE                  | huawei-cce                               |
+| Static file storage / CDN (long-term)            | OBS                  | huawei-obs                               |
+| Relational database (MySQL/PG)                   | RDS                  | huawei-rds                               |
+| Distributed SQL database                         | GaussDB              | huawei-cloud-gaussdb-instance-management |
+| Document database (MongoDB API)                  | DDS                  | huawei-cloud-dds-dcs-instance-management |
+| In-memory cache                                  | DCS (Redis)          | huawei-cloud-dds-dcs-instance-management |
+| Serverless functions                             | FunctionGraph        | huawei-functiongraph                     |
+| API management                                   | APIG                 | huawei-cloud-apig-instance-management    |
+| AI model training/inference                      | ModelArts            | huawei-modelarts                         |
+| Message queuing                                  | DMS (Kafka/RabbitMQ) | huawei-cloud-smn-dms-message             |
+| Push notifications                               | SMN                  | huawei-cloud-smn-dms-message             |
+| Secret management                                | DEW (CSMS)           | huawei-cloud-dew-key-management          |
+| Key management                                   | DEW (KMS)            | huawei-cloud-dew-key-management          |
+| DDoS protection                                  | AAD                  | huawei-cloud-waf-aad-rule-management     |
+| Web firewall                                     | WAF                  | huawei-cloud-waf-aad-rule-management     |
+| Monitoring dashboards                            | Cloud Eye (CES)      | huawei-cloud-eye                         |
+| Audit trails                                     | CTS                  | huawei-cloud-cts-trace-management        |
+| Backup / disaster recovery                       | CBR                  | huawei-cbr                               |
+| CI/CD pipeline                                   | CloudDeploy          | huawei-cloud-deployment-task-management  |
+| Temporary runtime / web app preview              | Sandbox (DevStation) | huawei-sandbox                           |
+| Getting started                                  | Account setup        | huaweicloud-cli-and-auth                 |
+| Incentive voucher                                | Voucher              | huawei-voucher                           |
+| Competition voucher (小红书skill创新赛)          | Voucher              | huawei-voucher                           |
+
+**Web app scenario layering**: for "deploy a web app", prefer `huawei-sandbox` for free/quick try (hello world, prototype, demo, temporary preview — temporary runtime + public URL (runtime lifetime not exposed via API); credential expiry see `expiresAt` from `connect`/`credentials`, zero billed resources); route to `huawei-functiongraph` / `huawei-ecs` (or `huawei-cce`) for production / long-term / custom-domain / high-availability hosting. When the chosen target requires **multiple purchased resources** (e.g. VPC + subnet + ECS + EIP + RDS, or OBS + CDN + DNS) or the user asks for an architecture/cost proposal first, hand off to `huawei-iac` for orchestrated provisioning with a mandatory cost gate.
+
+## Deployment Target Options (MANDATORY GATE — do not skip)
+
+When the intent is to **deploy, host, or preview a web app or static website** (no explicit target named), NEVER default to a single service such as OBS. You MUST present the target options via the `question` tool and obtain an explicit choice BEFORE calling any deployment tool. Present the options in this order:
+
+| #   | Option                                 | When to choose                                                                                                                                                       | Skill          |
+| --- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| 1   | **Sandbox (DevStation) — recommended** | Temporary runtime, quick preview, demo; instant public URL                                                                                                           | huawei-sandbox |
+| 2   | OBS static website hosting             | Long-term static hosting / CDN, no backend. **Remind: a custom domain (域名) must be prepared — the default OBS endpoint does not support HTTPS for static hosting** | huawei-obs     |
+| 3   | ECS                                    | Needs a server runtime (backend, custom server). **Remind: ECS must be paired with an EIP (弹性公网IP) for public access — extra billing**                           | huawei-ecs     |
+| 4   | CCE                                    | Containerized workloads, scaling                                                                                                                                     | huawei-cce     |
+
+Hard rules:
+
+- **NEVER infer or default the target** when it is unstated. Calling any deploy tool (`sandbox_connect`, `OBS mb`, `ECS CreateServers`, ...) before the choice is made is a violation.
+- Only skip the question when: (a) the developer already named a target (e.g. "部署到 ECS", "用 OBS"), or (b) the developer explicitly asked for a temporary / sandbox / preview runtime.
+- "部署到华为云" / "deploy to Huawei Cloud" / "上线" alone is NOT a named target — still run the gate.
+- Include the OBS domain reminder and the ECS EIP pairing reminder in the options as presented.
+
+- Recommended prompt: "这个项目是 Web 应用/静态网站，建议优先部署到沙箱（临时运行环境，立即可预览）。也可选择 OBS 静态托管（需提前准备好自定义域名）、ECS（需搭配弹性公网IP/EIP 才能公网访问）或 CCE，你想部署到哪里？"
+- If the developer explicitly names a target (e.g. "deploy to OBS"), the SANDBOX target hands off directly to `huawei-sandbox`; every other target (OBS / ECS / CCE / FunctionGraph / ...) hands off to `huawei-iac` for orchestration - iac loads the corresponding service skill for commands and adds the mandatory cost+balance gate, batch approval, state tracking, and ordered destroy. Direct handoff to the bare service skill skips these safety stages and must not happen for deployment intent. **Existing network resources (a reusable VPC) do NOT downgrade this to a single-service task - the purchase itself (compute, EIP, disk, rules) is what triggers iac.**
+- If the developer has no preference, recommend the sandbox first.
 
 ## Capability Sources
 
@@ -83,6 +121,7 @@ Do not rely on training data for facts. Huawei Cloud services, pricing, quotas, 
 
 - Use huaweicloud_search_docs to discover skills covering a topic
 - Use huaweicloud_retrieve_skill to load a full SKILL.md after routing
+- Use huaweicloud_auth_init to switch credentials at runtime when different accounts co-exist in the same session
 - If no built-in skill matches, consult huaweicloud-capability-discovery for external marketplace options
 - Use huaweicloud_list_regions before creating regional resources
 - Use huaweicloud_get_regional_availability when unsure about service-region pairs

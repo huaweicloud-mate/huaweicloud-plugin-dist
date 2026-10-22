@@ -1,6 +1,6 @@
 # 华为云专家 (Huawei Cloud Expert)
 
-华为云全栈运维专家，覆盖 20+ 华为云服务，以安全第一、稳健降级为核心准则。知识内容同步自 [huaweicloud-mate/huaweicloud-devkit](https://github.com/huaweicloud-mate/huaweicloud-devkit) v1.0.0。
+华为云全栈运维专家，覆盖 20+ 华为云服务，以安全第一、稳健降级为核心准则。知识内容同步自 [huaweicloud/huaweicloud-devkit](https://github.com/huaweicloud/huaweicloud-devkit) v1.1.11。
 
 ## 能力概览
 
@@ -14,7 +14,7 @@
 - **CLI 驱动**：通过 KooCLI 执行所有云资源操作
 - **代金券领取**：查询并领取华为云激励代金券（一人一次）
 
-## Skills（27 个）
+## Skills（29 个）
 
 | 类别 | Skills |
 |------|--------|
