@@ -87,11 +87,20 @@ jobs:
           git add dist/workbuddy/
           if git diff --cached --quiet; then
             echo "No dist changes for this build"
-          else
-            git commit -m "build: workbuddy package v${{ steps.version.outputs.version }} (source: ${{ env.SOURCE_REPO }}@${{ env.SOURCE_REF }})"
-            git pull --rebase origin main
-            git push
+            exit 0
           fi
+          git commit -m "build: workbuddy package v${{ steps.version.outputs.version }} (source: ${{ env.SOURCE_REPO }}@${{ env.SOURCE_REF }})"
+          attempts=0
+          until git push origin main; do
+            attempts=$((attempts + 1))
+            if [ "$attempts" -ge 5 ]; then
+              echo "::error::push failed after $attempts attempts"
+              exit 1
+            fi
+            echo "push attempt $attempts rejected; rebasing and retrying"
+            sleep $((attempts * 10))
+            git pull --rebase origin main || { git rebase --abort; exit 1; }
+          done
 
       - name: Publish release
         env:
@@ -173,11 +182,20 @@ jobs:
           git add dist/clawhub/
           if git diff --cached --quiet; then
             echo "No dist changes for this build"
-          else
-            git commit -m "build: clawhub package v${{ steps.version.outputs.version }} (source: npm registry)"
-            git pull --rebase origin main
-            git push
+            exit 0
           fi
+          git commit -m "build: clawhub package v${{ steps.version.outputs.version }} (source: npm registry)"
+          attempts=0
+          until git push origin main; do
+            attempts=$((attempts + 1))
+            if [ "$attempts" -ge 5 ]; then
+              echo "::error::push failed after $attempts attempts"
+              exit 1
+            fi
+            echo "push attempt $attempts rejected; rebasing and retrying"
+            sleep $((attempts * 10))
+            git pull --rebase origin main || { git rebase --abort; exit 1; }
+          done
 
       - name: Publish release
         env:
