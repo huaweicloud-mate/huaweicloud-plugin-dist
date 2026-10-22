@@ -1,0 +1,52 @@
+name: auto-build
+
+# Poll the npm registry for the huaweicloud-devkit version and trigger the
+# build workflow when a new version is published. This makes npm publish the
+# de-facto release trigger: the upstream repo does not need to send any event.
+#
+# The build workflow records the built version in .state/last-built-npm-version
+# (only when it matches the npm registry), so unchanged versions are not rebuilt.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: auto-build
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dist repo
+        uses: actions/checkout@v4
+
+      - name: Compare npm version with last built version
+        id: check
+        run: |
+          NPM_VERSION=$(npm view huaweicloud-devkit version)
+          LAST=$(cat .state/last-built-npm-version 2>/dev/null || echo "none")
+          echo "npm=$NPM_VERSION last_built=$LAST"
+          if [ "$NPM_VERSION" != "$LAST" ]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "version=$NPM_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger build
+        if: steps.check.outputs.should_build == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run build \
+            -f source_repo=huaweicloud/huaweicloud-devkit \
+            -f ref=dev \
+            -f version="${{ steps.check.outputs.version }}"
+          echo "Triggered build for npm version ${{ steps.check.outputs.version }}"

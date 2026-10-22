@@ -40,10 +40,11 @@ node scripts/build-workbuddy.mjs --source <主仓 checkout 路径> --version <�
 
 ## 自动分发
 
-workflow `.github/workflows/build.yml` 支持两种触发：
+workflow `.github/workflows/build.yml` 支持三种触发：
 
-1. **手动**（`workflow_dispatch`）：指定源仓（默认上游 `huaweicloud/huaweicloud-devkit`）、ref（默认 `dev`）、版本号（默认从 npm registry 解析）。
-2. **发包联动**（`repository_dispatch`，type `plugin-release`）：发包时发送
+1. **npm 发包自动联动**（`.github/workflows/auto-build.yml`，每 30 分钟轮询）：检测到 npm registry 上 `huaweicloud-devkit` 有新版本（对比 `.state/last-built-npm-version`）即自动触发打包。**上游代码仓无需做任何事情，npm publish 即触发。**
+2. **手动**（`workflow_dispatch`）：指定源仓（默认上游 `huaweicloud/huaweicloud-devkit`）、ref（默认 `dev`）、版本号（默认从 npm registry 解析）。
+3. **外部联动**（`repository_dispatch`，type `plugin-release`）：其他自动化发送
 
 ```bash
 gh api repos/huaweicloud-mate/huaweicloud-plugin-dist/dispatches \
@@ -52,7 +53,7 @@ gh api repos/huaweicloud-mate/huaweicloud-plugin-dist/dispatches \
   -F 'client_payload[version]=<版本号>'
 ```
 
-流水线动作：构建 → 提交 `dist/` 变更 → 创建 Release（tag `workbuddy-v<版本>`，附 `huaweicloud-plugin.zip` 产物）。
+流水线动作：构建 → 提交 `dist/` 变更 → 创建 Release（tag `workbuddy-v<版本>`，附 `huaweicloud-plugin.zip` 产物）→ 记录已构建版本（`.state/last-built-npm-version`，供轮询判重）。
 
 **官方提交途径**：WorkBuddy 专家包目前为控制台人工上传 — 从 Release 下载 zip 后上传到 WorkBuddy 商店。当官方提供提交 API 时，在 workflow 中追加 `publish-*` job 即可接入。
 

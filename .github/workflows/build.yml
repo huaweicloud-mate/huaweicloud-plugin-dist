@@ -103,6 +103,22 @@ jobs:
             --title "WorkBuddy Expert Package v${VERSION}" \
             --notes "WorkBuddy expert package built from ${SOURCE_REPO}@${SOURCE_REF}. Upload the zip asset to the WorkBuddy store console to submit officially."
 
+      - name: Mark npm version as built
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          NPM_VERSION=$(npm view huaweicloud-devkit version || true)
+          if [ "$VERSION" = "$NPM_VERSION" ]; then
+            mkdir -p .state
+            printf '%s' "$VERSION" > .state/last-built-npm-version
+            git add .state/
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: mark npm version ${VERSION} as built"
+              git push
+            fi
+          else
+            echo "Built version ${VERSION} differs from npm ${NPM_VERSION}; state not updated"
+          fi
+
       - name: Summary
         run: |
           VERSION="${{ steps.version.outputs.version }}"
