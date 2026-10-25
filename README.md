@@ -71,6 +71,21 @@ gh api repos/huaweicloud-mate/huaweicloud-plugin-dist/dispatches \
 
 **官方提交途径**：WorkBuddy 专家包目前为控制台人工上传 — 从 Release 下载 zip 后上传到 WorkBuddy 商店。当官方提供提交 API 时，在 workflow 中追加 `publish-*` job 即可接入。
 
+## 运行时兼容监控
+
+DevKit 对各 agent 环境的运行时需求（当前：`engines.node: ">=22"` 硬依赖 + 包内 python/shell 脚本的可选执行轨）可能与各 agent 内置的运行时版本冲突。监控机制：**需求侧自动提取 + 供给侧手工登记 + 每次构建自动对账 + 不兼容自动开 issue**。
+
+```
+runtimes.json                        供给侧登记表：各 agent 内置运行时版本（手工维护，带 lastVerified 与探测提示）
+scripts/check-runtime-compat.mjs     需求侧自动提取（npm 包 engines + 第二运行时扫描）+ semver 对账 + 矩阵输出
+dist/runtime-compat/                 兼容矩阵（compat.md 人读 + compat.json 机器读），每次构建提交
+```
+
+- **需求侧**每次构建从 npm tarball 自动提取（engines.node、包内 .py/.sh 脚本数）
+- **供给侧**无法从 GitHub 自动感知（agent 内置 Node 在 agent 自己的发布物里），手工维护 `runtimes.json`——agent 升级后更新并刷新 `lastVerified`
+- 每次 build（含 30 分钟 npm 轮询联动）自动对账：兼容 → 矩阵更新入库；**不兼容 → 自动开/更新 `runtime-compat` 标签的 GitHub issue 告警**
+- 当前四个 agent（workbuddy 22.22.2 / officeace 22.22.2 / codearts-ide 22.21.1 / codearts-desktop 22.23.2）均满足 `>=22`
+
 ## License
 
 Apache-2.0

@@ -1,0 +1,51 @@
+{
+  "checkedAt": "2026-10-25T14:56:36.004Z",
+  "devkitVersion": "1.1.11",
+  "requirements": {
+    "node": ">=22",
+    "pythonScripts": 17,
+    "shellScripts": 10
+  },
+  "registryLastUpdated": "2026-10-25",
+  "matrix": [
+    {
+      "agent": "workbuddy",
+      "bundledNode": "22.22.2",
+      "nodeCompat": "ok",
+      "pythonBundled": null,
+      "lastVerified": "2026-10-22",
+      "pythonNote": "package ships python scripts on the optional execution track; agent python availability untracked"
+    },
+    {
+      "agent": "officeace",
+      "bundledNode": "22.22.2",
+      "nodeCompat": "ok",
+      "pythonBundled": null,
+      "lastVerified": "2026-10-25",
+      "pythonNote": "package ships python scripts on the optional execution track; agent python availability untracked"
+    },
+    {
+      "agent": "codearts-ide",
+      "bundledNode": "22.21.1",
+      "nodeCompat": "ok",
+      "pythonBundled": null,
+      "lastVerified": "2026-10-25",
+      "pythonNote": "package ships python scripts on the optional execution track; agent python availability untracked"
+    },
+    {
+      "agent": "codearts-desktop",
+      "bundledNode": "22.23.2",
+      "nodeCompat": "ok",
+      "pythonBundled": null,
+      "lastVerified": "2026-10-25",
+      "pythonNote": "package ships python scripts on the optional execution track; agent python availability untracked"
+    }
+  ],
+  "incompatible": [],
+  "warnings": [
+    "workbuddy: package ships 17 python scripts but no bundled python is registered",
+    "officeace: package ships 17 python scripts but no bundled python is registered",
+    "codearts-ide: package ships 17 python scripts but no bundled python is registered",
+    "codearts-desktop: package ships 17 python scripts but no bundled python is registered"
+  ]
+}

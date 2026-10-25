@@ -1,0 +1,30 @@
+{
+  "$comment": "Runtime supply registry: runtimes bundled by each agent DevKit is installed into. Maintained manually — agent-bundled runtimes live inside the agents' own distributions and cannot be observed from GitHub. Update on agent upgrades and refresh lastVerified. Detection hints help humans re-verify.",
+  "lastUpdated": "2026-10-25",
+  "agents": {
+    "workbuddy": {
+      "node": "22.22.2",
+      "python": null,
+      "lastVerified": "2026-10-22",
+      "detectionHint": "WorkBuddy managed Node installs under %USERPROFILE%\\.workbuddy\\binaries\\node\\versions\\<version> (directory name contains the Node version); does not write to system PATH."
+    },
+    "officeace": {
+      "node": "22.22.2",
+      "python": null,
+      "lastVerified": "2026-10-25",
+      "detectionHint": "Bundled Node reported by the OfficeAce platform team; re-verify on agent upgrades."
+    },
+    "codearts-ide": {
+      "node": "22.21.1",
+      "python": null,
+      "lastVerified": "2026-10-25",
+      "detectionHint": "CodeArts IDE bundled Node reported by the platform team; re-verify on agent upgrades."
+    },
+    "codearts-desktop": {
+      "node": "22.23.2",
+      "python": null,
+      "lastVerified": "2026-10-25",
+      "detectionHint": "CodeArts Desktop bundled Node reported by the platform team; re-verify on agent upgrades."
+    }
+  }
+}

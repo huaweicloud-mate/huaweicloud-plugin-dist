@@ -256,3 +256,74 @@ jobs:
             echo "- Package: \`clawhub:huaweicloud-devkit\`"
             echo "- Install: \`openclaw plugins install clawhub:huaweicloud-devkit\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  runtime-compat:
+    runs-on: ubuntu-latest
+    # Runtime compatibility monitor: extract the devkit package's runtime
+    # requirements (engines.node + second-runtime traces) from the npm tarball
+    # and reconcile them against the agent runtime registry (runtimes.json).
+    # Runs on every build — i.e. whenever the npm version changes (auto-build
+    # poller) or a build is triggered manually. Agent registry updates (agent
+    # upgrades) trigger a rebuild via workflow_dispatch.
+    env:
+      INPUT_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event.client_payload.version }}
+    steps:
+      - name: Checkout dist repo
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION=$(npm view huaweicloud-devkit version)
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check runtime compatibility
+        run: node scripts/check-runtime-compat.mjs --version "${{ steps.version.outputs.version }}"
+
+      - name: Commit compat matrix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist/runtime-compat/
+          if git diff --cached --quiet; then
+            echo "No compat matrix changes"
+            exit 0
+          fi
+          git commit -m "chore: runtime compat matrix for devkit v${{ steps.version.outputs.version }}"
+          attempts=0
+          until git push origin main; do
+            attempts=$((attempts + 1))
+            if [ "$attempts" -ge 5 ]; then
+              echo "::error::push failed after $attempts attempts"
+              exit 1
+            fi
+            echo "push attempt $attempts rejected; rebasing and retrying"
+            sleep $((attempts * 10))
+            git pull --rebase origin main || { git rebase --abort; exit 1; }
+          done
+
+      - name: Set incompatible flag
+        run: |
+          N=$(node -p "JSON.parse(require('fs').readFileSync('dist/runtime-compat/compat.json','utf8')).incompatible.length")
+          echo "incompatible agents: $N"
+          echo "INCOMPATIBLE=$N" >> "$GITHUB_ENV"
+
+      - name: File incompatibility issue
+        if: env.INCOMPATIBLE != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create runtime-compat -R "$GITHUB_REPOSITORY" --color D93F0B --description "Runtime incompatibility between devkit and an agent" || true
+          EXISTING=$(gh issue list -R "$GITHUB_REPOSITORY" --label runtime-compat --state open --json number --jq 'length')
+          if [ "$EXISTING" -gt 0 ]; then
+            NUM=$(gh issue list -R "$GITHUB_REPOSITORY" --label runtime-compat --state open --json number --jq '.[0].number')
+            gh issue comment "$NUM" -R "$GITHUB_REPOSITORY" --body-file dist/runtime-compat/issue-body.md
+          else
+            gh issue create -R "$GITHUB_REPOSITORY" --label runtime-compat \
+              --title "Runtime incompatibility: devkit v${{ steps.version.outputs.version }} exceeds an agent's bundled runtime" \
+              --body-file dist/runtime-compat/issue-body.md
+          fi
