@@ -1,4 +1,4 @@
-huaweicloud-devkit **v1.1.12** runtime compatibility check found incompatibilities.
+huaweicloud-devkit **v1.1.13** runtime compatibility check found incompatibilities.
 
 | Agent | Bundled node | Verdict |
 |-------|-------------|---------|
