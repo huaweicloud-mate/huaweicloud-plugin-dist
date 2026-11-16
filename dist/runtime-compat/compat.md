@@ -1,10 +1,10 @@
 # Runtime compatibility matrix
 
-Checked at 2026-11-05T17:18:59.624Z for huaweicloud-devkit **v1.1.13**.
+Checked at 2026-11-16T17:16:37.907Z for huaweicloud-devkit **v1.1.14**.
 
 ## Requirements (extracted from the package)
 
-- engines.node: `>=22`
+- engines.node: `^22.19.0 || >=23.4.0`
 - python scripts: 17 (optional execution track)
 - shell scripts: 10 (optional execution track)
 
@@ -12,12 +12,17 @@ Checked at 2026-11-05T17:18:59.624Z for huaweicloud-devkit **v1.1.13**.
 
 | Agent | Bundled node | engines.node | Node compat | Bundled python | Last verified |
 |-------|-------------|--------------|-------------|----------------|---------------|
-| workbuddy | 22.22.2 | >=22 | ok | 未登记 | 2026-10-22 |
-| officeace | 22.22.2 | >=22 | ok | 未登记 | 2026-10-25 |
-| codearts-ide | 22.21.1 | >=22 | ok | 未登记 | 2026-10-25 |
-| codearts-desktop | 22.23.2 | >=22 | ok | 未登记 | 2026-10-25 |
+| workbuddy | 22.22.2 | ^22.19.0 || >=23.4.0 | insufficient | 未登记 | 2026-10-22 |
+| officeace | 22.22.2 | ^22.19.0 || >=23.4.0 | insufficient | 未登记 | 2026-10-25 |
+| codearts-ide | 22.21.1 | ^22.19.0 || >=23.4.0 | insufficient | 未登记 | 2026-10-25 |
+| codearts-desktop | 22.23.2 | ^22.19.0 || >=23.4.0 | insufficient | 未登记 | 2026-10-25 |
 
-## ✅ All registered agents are compatible
+## ❌ Incompatible
+
+- workbuddy: bundled node 22.22.2 does not satisfy engines.node "^22.19.0 || >=23.4.0"
+- officeace: bundled node 22.22.2 does not satisfy engines.node "^22.19.0 || >=23.4.0"
+- codearts-ide: bundled node 22.21.1 does not satisfy engines.node "^22.19.0 || >=23.4.0"
+- codearts-desktop: bundled node 22.23.2 does not satisfy engines.node "^22.19.0 || >=23.4.0"
 
 ## ⚠️ Warnings
 
