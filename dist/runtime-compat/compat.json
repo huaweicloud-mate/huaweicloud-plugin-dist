@@ -1,6 +1,6 @@
 {
-  "checkedAt": "2026-11-16T17:16:37.907Z",
-  "devkitVersion": "1.1.14",
+  "checkedAt": "2026-11-20T12:36:19.845Z",
+  "devkitVersion": "1.1.15",
   "requirements": {
     "node": "^22.19.0 || >=23.4.0",
     "pythonScripts": 17,
