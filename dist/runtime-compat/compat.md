@@ -1,6 +1,6 @@
 # Runtime compatibility matrix
 
-Checked at 2026-11-20T20:55:54.103Z for huaweicloud-devkit **v1.1.15**.
+Checked at 2026-11-21T01:59:30.082Z for huaweicloud-devkit **v1.1.15**.
 
 ## Requirements (extracted from the package)
 
