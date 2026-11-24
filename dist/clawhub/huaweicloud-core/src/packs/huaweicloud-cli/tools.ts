@@ -1,0 +1,532 @@
+import { z } from 'zod';
+
+import {
+  runHcloud,
+  planHcloudCommand,
+  stripLeadingHcloudBinArgs,
+  firstPlaceholderSecretArg,
+  pinViewArgs,
+  needsUserConfirmation,
+  quoteShellArg,
+  hcloudExecutableLines,
+  type HcloudRunResult,
+  type HcloudRunOptions,
+} from '../../hcloud-cli.ts';
+import { hcloudProbeNextStep, hcloudProbeRaw, probeHcloud, type ProbeHcloudOptions } from '../../hcloud-probe.ts';
+import { redactSecrets } from '../../safety-policy.ts';
+import { asText } from '../../lib/as-text.ts';
+import { approvalModeFromEnv, type ApprovalMode } from '../../lib/approval-mode.ts';
+import { hashArgs } from '../../lib/approval-tokens.ts';
+import {
+  approvalTokenArg,
+  approvedByUserArg,
+  booleanArg,
+  numericArg,
+  stringArrayArg,
+  vendorConfirmed,
+} from '../../lib/tool-schema-parts.ts';
+import type { PackToolDefinition, LooseToolSchema } from '../../lib/pack-types.ts';
+import type { CallToolOptions, ToolArgs } from '../../tools.ts';
+import { asRecord } from '../../lib/as-record.ts';
+import type { ApprovalSpec } from '../../approval-types.ts';
+
+// The seven KooCLI-coupled execution tools sunk from core (src/tools.ts):
+// version/profile inspection, plan/readonly/approved command execution,
+// operation discovery, and region listing. The consent layer lives in the
+// dispatch-layer approval gate (src/approval-gate.ts) plus the token store
+// (src/lib/approval-tokens.ts): the gate, driven by this pack's
+// HUAWEICLOUD_CLI_APPROVAL_SPECS entry, owns the attestation check, the
+// token lifecycle envelopes, the placeholder floor, and the args binding;
+// the handler keeps the pure runHcloud execution. The approval posture
+// resolves from DEVKIT_APPROVAL_MODE (src/lib/approval-mode.ts): 'token'
+// (default) keeps the out-of-band terminal gate; 'ask' moves the
+// confirmation onto the server-run gate (an elicitation form, or the T3
+// chat round-trip), so the plan mints nothing and the run needs no token. The only allowWrites:true call
+// sites in the codebase (the approved-run execution) live here, so trimming this pack
+// removes the CLI execution face and its approval tools together: a
+// configuration trimmed of this pack has no devkit-side hcloud CLI write
+// path, and the gateway face, when enabled, is a separate delegated write
+// path.
+
+export async function runVersionCheck(options: ProbeHcloudOptions = {}) {
+  const result = probeHcloud(options);
+  return {
+    installed: result.installed,
+    authenticated: result.ok && !/配置文件中不存在配置项|USE_ERROR.*配置/i.test(result.output || ''),
+    errorCode: result.errorCode,
+    status: result.status,
+    output: result.output,
+    kooCliVersion: result.requiredVersion || undefined,
+    installedVersion: result.installedVersion || undefined,
+    versionMismatch: Boolean(result.versionMismatch),
+    nextStep: hcloudProbeNextStep(result),
+    // #900: verbose English guidance lives only in this side-channel.
+    raw: hcloudProbeRaw(result),
+    authHint:
+      'If hcloud is installed but commands fail with "配置文件中不存在配置项", run `npx huaweicloud-devkit auth init` outside agent chat to configure credentials.',
+  };
+}
+
+async function showProfileRedacted(profile?: string) {
+  const args = ['configure', 'show'];
+  if (profile) {
+    args.push('--cli-profile', String(profile));
+  }
+  // The catch fallback adds the blocked/reason markers on top of a run result.
+  type ProfileRunResult = HcloudRunResult & { blocked?: boolean; reason?: string };
+  const result: ProfileRunResult = await runHcloud(args, { allowWrites: false, allowCredentialRead: true }).catch(
+    (error): ProfileRunResult => ({
+      ok: false,
+      blocked: true,
+      reason: error instanceof Error ? error.message : String(error),
+    }),
+  );
+  if (result.blocked) {
+    return {
+      ok: false,
+      blockedByPolicy: true,
+      reason: result.reason,
+      safeAlternative:
+        'Use huaweicloud_show_profile_redacted so profile output is returned through the redaction pipeline.',
+    };
+  }
+  return {
+    ok: result.ok,
+    note: result.ok
+      ? 'Profile information was returned through the toolkit redaction pipeline.'
+      : 'Failed to retrieve profile — hcloud may not be installed or configured.',
+    result: redactSecrets(result),
+  };
+}
+
+const SERVICE_EXAMPLES: Record<string, { list: string; create: string; show: string }> = {
+  ECS: { list: 'ECS ListServersDetails', create: 'ECS CreateServers', show: 'IMS GlanceShowImage' },
+  VPC: { list: 'VPC ListVpcs', create: 'VPC CreateVpc', show: 'VPC ShowVpc' },
+  FUNCTIONGRAPH: {
+    list: 'FunctionGraph ListFunctions',
+    create: 'FunctionGraph CreateFunction',
+    show: 'FunctionGraph ShowFunctionConfig',
+  },
+  APIG: { list: 'APIG ListInstancesV2', create: 'APIG CreateInstanceV2', show: 'APIG ShowDetailsOfInstanceV2' },
+  OBS: { list: 'OBS ls', create: 'OBS mb obs://<bucket>', show: 'OBS stat obs://<bucket>/<key>' },
+  RDS: { list: 'RDS ListInstances', create: 'RDS CreateInstance', show: 'RDS ShowInstance' },
+  CES: { list: 'CES ListAlarms', create: 'CES CreateAlarm', show: 'CES ListMetrics' },
+  GAUSSDB: {
+    list: 'GaussDB ListGaussMySqlInstances',
+    create: 'GaussDB CreateGaussMySqlInstance',
+    show: 'GaussDB ShowGaussMySqlInstanceInfo',
+  },
+  DDS: { list: 'DDS ListInstances', create: 'DDS CreateInstance', show: 'DDS ShowInstance' },
+  DCS: { list: 'DCS ListInstances', create: 'DCS CreateInstance', show: 'DCS ShowInstance' },
+};
+
+// DMS and DEW are Huawei Cloud aggregate service names that do not exist as
+// single KooCLI service identifiers. Each maps to real KooCLI sub-services.
+const AGGREGATE_SERVICE_MAP: Record<string, string[]> = {
+  DMS: ['Kafka', 'RabbitMQ', 'RocketMQ'],
+  DEW: ['KMS', 'CSMS'],
+};
+
+// Identity-class notes per service. BSS leads: its operations are split between
+// Customer-level APIs (work with a normal IAM user) and Partner-level APIs
+// (only valid for a partner/dealer identity). Calling a Partner-level API with a
+// customer credential returns APIGW.0301 even when AK/SK are perfectly valid —
+// the common false-positive diagnosis is "cli-domain-id missing".
+const SERVICE_IDENTITY_NOTES: Record<string, Array<{ identity: string; apis: string[]; note: string }>> = {
+  BSS: [
+    {
+      identity: 'Customer-level (normal IAM user)',
+      apis: [
+        'ShowCustomerAccountBalances',
+        'ListCustomerBillsFeeRecords',
+        'ListCustomerCouponChangeRecords',
+        'ListResourceUsage',
+        'ListCosts',
+      ],
+      note: 'Work with a normal IAM user that has BSS Administrator or Finance role.',
+    },
+    {
+      identity: 'Partner-level (partner/dealer only)',
+      apis: ['ListQuotaCoupons', 'ListSubCustomerCoupons', 'ListSubCustomerBillDetail'],
+      note: 'APIGW.0301 here means the caller identity is not a partner — NOT bad AK/SK or a missing cli-domain-id.',
+    },
+  ],
+};
+
+async function listOperations(service: string | undefined, options: { timeoutMs?: number } = {}) {
+  const serviceName = String(service || '').trim();
+  if (!/^[A-Za-z][A-Za-z0-9-]{1,63}$/.test(serviceName)) {
+    throw new Error('service must be a KooCLI service name such as ECS, VPC, IMS, OBS, RDS, or CDN.');
+  }
+  const upperName = serviceName.toUpperCase();
+  const subServices = AGGREGATE_SERVICE_MAP[upperName];
+  if (subServices && subServices.length) {
+    // Aggregate fan-out: return each sub-service's operations instead of failing
+    // on the aggregate name directly (DMS/DEW do not exist as KooCLI services).
+    const results = await Promise.all(
+      subServices.map(async (sub) => {
+        let result = await runHcloud([sub, '--help'], {
+          timeoutMs: options.timeoutMs,
+          maxRetries: 0,
+        });
+        if (!result.ok) {
+          result = await runHcloud([sub, 'help'], {
+            timeoutMs: options.timeoutMs,
+            maxRetries: 0,
+          });
+        }
+        return {
+          subService: sub,
+          command: `hcloud ${sub} --help`,
+          examples: SERVICE_EXAMPLES[sub.toUpperCase()] || {
+            note: `No cached examples for ${sub}. Use the help text above to discover available operations.`,
+          },
+          result,
+        };
+      }),
+    );
+    return {
+      service: serviceName,
+      aggregate: true,
+      aggregatedFrom: subServices,
+      selectionRule:
+        'DMS/DEW are aggregate service names. Use each sub-service help text below to select the exact KooCLI operation name.',
+      identityNotes: SERVICE_IDENTITY_NOTES[upperName] || null,
+      subServices: results,
+    };
+  }
+  const isObs = /^obs$/i.test(serviceName);
+  const svc = isObs ? 'obs' : serviceName;
+  const args = isObs ? ['obs', 'help'] : [svc, '--help'];
+  let result = await runHcloud(args, {
+    timeoutMs: options.timeoutMs,
+    maxRetries: 0,
+  });
+  if (!result.ok && !isObs) {
+    result = await runHcloud([svc, 'help'], {
+      timeoutMs: options.timeoutMs,
+      maxRetries: 0,
+    });
+  }
+  return {
+    service: serviceName,
+    command: isObs ? 'hcloud obs help' : `hcloud ${svc} --help`,
+    selectionRule:
+      'Use this help text to select the exact KooCLI operation name before planning any service command. After selecting an operation, run "hcloud <Service> <Operation> --help" to confirm exact parameter names before constructing the command.',
+    identityNotes: SERVICE_IDENTITY_NOTES[upperName] || null,
+    examples: SERVICE_EXAMPLES[upperName] || {
+      note: `No cached examples for ${serviceName}. Use the help text above to discover available operations.`,
+    },
+    result,
+  };
+}
+
+// A placeholder-shaped secret VALUE at run time is never a real secret in
+// either approval mode: executing a literal `<redacted>`/`<password>` as
+// the password is always wrong. The guard is shared so the two modes can
+// never drift on detection; only the re-run wording is mode-aware — token
+// mode keeps the guidance followable on the SAME approval (the guard runs
+// before the token is consumed; loop round 3, seat-1 B3: the guidance used
+// to be a dead end because the rejection burned the only token), while
+// ask mode has no token to preserve and must not reference one.
+function assertNoPlaceholderSecret(args: string[], mode: ApprovalMode): void {
+  const placeholderArg = firstPlaceholderSecretArg(args);
+  if (!placeholderArg) return;
+  throw new Error(
+    `The argument "${placeholderArg}" still carries a placeholder secret value: replace <redacted> with the actual value the user approved, ` +
+      (mode === 'ask' ? 'then re-run.' : 'then re-run with the same approval token.'),
+  );
+}
+
+// The run options both approval modes execute under: allowWrites stays
+// scoped to this file's call sites (the only ones in the codebase), and
+// the pass-through fields keep their names verbatim.
+function approvedRunOptions(args: ToolArgs): HcloudRunOptions {
+  return {
+    allowWrites: true,
+    timeoutMs: args.timeoutMs,
+    maxRetries: args.maxRetries,
+    cwd: args.cwd,
+    stdin: args.stdin,
+  };
+}
+
+// The wire form of the args the approval binds and the engine executes:
+// hcloud ARGUMENTS ("excluding the hcloud executable" per the schema),
+// which agents routinely paste anyway — one derivation shared by the
+// handler and the pack's approval spec.
+function providedStringArgs(args: ToolArgs): string[] {
+  return Array.isArray(args.args) ? args.args.map(String) : [];
+}
+
+// Both approval modes end in the same execution: derive the effective
+// args, plan strictly (never minting — ask mode has no token face, and in
+// token mode the gate has already consumed it), execute, and embed the
+// plan. The dispatch-layer approval gate (src/approval-gate.ts) owns
+// everything consent-shaped ahead of this point; runHcloud's assertAllowed
+// re-assertion of the strict classification stays the execution floor
+// (secret/credential/invalid denies still throw; allowWrites:true stays
+// scoped to the approved-run call sites, the only ones in the codebase).
+async function executeApproved(args: ToolArgs): Promise<unknown> {
+  const { args: effectiveArgs } = stripLeadingHcloudBinArgs(providedStringArgs(args));
+  const strictPlan = planHcloudCommand(effectiveArgs, {
+    allowWrites: false,
+    mintApprovalToken: false,
+    approvalMode: approvalModeFromEnv(process.env),
+  });
+  const result = await runHcloud(effectiveArgs, approvedRunOptions(args));
+  // Spread instead of in-place mutation: the HcloudRunResult shape stays
+  // owned by hcloud-cli.ts.
+  return { ...result, approved: true, plan: strictPlan };
+}
+
+async function runApprovedCommand(args: ToolArgs = {}) {
+  // The gate has already verified the approvedByUser attestation,
+  // classified the token lifecycle (an ask-mode call routes here with no
+  // token), enforced the placeholder-secret floor before any consume, and
+  // bound the provided args to the consumed entry's hash and pin view.
+  return executeApproved(args);
+}
+
+async function listRegions() {
+  const result = await runHcloud(['IAM', 'KeystoneListRegions'], { timeoutMs: 30000, maxRetries: 0 }).catch(
+    (error): HcloudRunResult => ({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: result.error || 'Failed to list regions.',
+      fallback: 'Check https://developer.huaweicloud.com/endpoint for available regions.',
+      staticRegions: [
+        { id: 'cn-north-1', description: '华北-北京一' },
+        { id: 'cn-north-4', description: '华北-北京四' },
+        { id: 'cn-east-3', description: '华东-上海一' },
+        { id: 'cn-east-2', description: '华东-上海二' },
+        { id: 'cn-south-1', description: '华南-广州' },
+        { id: 'ap-southeast-1', description: '香港' },
+        { id: 'ap-southeast-3', description: '新加坡' },
+        { id: 'ap-southeast-2', description: '曼谷' },
+        { id: 'af-south-1', description: '约翰内斯堡' },
+      ],
+      note: 'hcloud unavailable. Showing static region list. For the complete list, visit the fallback URL.',
+    };
+  }
+  let regions: Array<Record<string, unknown>>;
+  try {
+    const parsed: unknown = typeof result.stdout === 'string' ? JSON.parse(result.stdout) : result.stdout;
+    const rawRegionsValue = asRecord(parsed).regions;
+    const rawRegions = Array.isArray(rawRegionsValue) ? rawRegionsValue : [];
+    regions = rawRegions.map((r) => {
+      const record = asRecord(r);
+      return {
+        id: record.id,
+        description: record.description || record.names,
+        type: record.type,
+        locales: record.locales,
+      };
+    });
+  } catch {
+    regions = [{ raw: String(result.stdout).substring(0, 1000) }];
+  }
+  regions.sort((a, b) => asText(a.id || '').localeCompare(asText(b.id || '')));
+  return { ok: true, count: regions.length, regions };
+}
+
+async function handleCheckCli(_args: ToolArgs = {}, _opts: CallToolOptions = {}) {
+  return runVersionCheck();
+}
+
+async function handlePlanCliCommand(args: ToolArgs = {}, _opts: CallToolOptions = {}) {
+  return planHcloudCommand(args.args || [], {
+    allowWrites: args.allowWrites === true,
+    approvalMode: approvalModeFromEnv(process.env),
+  });
+}
+
+async function handleRunReadonlyCommand(args: ToolArgs = {}, _opts: CallToolOptions = {}) {
+  return runHcloud(args.args || [], {
+    timeoutMs: args.timeoutMs,
+    maxRetries: args.maxRetries,
+    cwd: args.cwd,
+    stdin: args.stdin,
+  });
+}
+
+async function handleListOperations(args: ToolArgs = {}, _opts: CallToolOptions = {}) {
+  return listOperations(args.service, { timeoutMs: args.timeoutMs });
+}
+
+async function handleRunApprovedCommand(args: ToolArgs = {}, _opts: CallToolOptions = {}) {
+  return runApprovedCommand(args);
+}
+
+async function handleShowProfileRedacted(args: ToolArgs = {}, _opts: CallToolOptions = {}) {
+  return showProfileRedacted(args.profile);
+}
+
+async function handleListRegions(_args: ToolArgs = {}, _opts: CallToolOptions = {}) {
+  return listRegions();
+}
+
+const checkCliSchema = z.looseObject({ vendorConfirmed });
+const planCliCommandSchema = z.looseObject({
+  vendorConfirmed,
+  args: stringArrayArg.describe('hcloud arguments, excluding the hcloud executable.'),
+  allowWrites: booleanArg.optional().describe('Only true after explicit user approval for this exact operation.'),
+});
+const runReadonlyCommandSchema = z.looseObject({
+  vendorConfirmed,
+  args: stringArrayArg.describe('hcloud arguments, excluding the hcloud executable.'),
+  timeoutMs: numericArg.optional().describe('Optional timeout in milliseconds. Defaults to 60000.'),
+  maxRetries: numericArg.optional().describe('Optional retry count for transient network errors. Defaults to 1.'),
+  cwd: z.string().optional().describe('Optional working directory for the hcloud process.'),
+});
+const listOperationsSchema = z.looseObject({
+  vendorConfirmed,
+  service: z.string().describe('KooCLI service name, such as ECS, VPC, IMS, OBS, RDS, or CDN.'),
+  timeoutMs: numericArg.optional().describe('Optional timeout in milliseconds. Defaults to 60000.'),
+});
+const runApprovedCommandSchema = z.looseObject({
+  vendorConfirmed,
+  command: z
+    .string()
+    .optional()
+    .describe(
+      'Always send this: the exact full hcloud command line this call executes, for example "hcloud ECS DeleteServer --server_id=i-123". The plan result\'s command field (huaweicloud_plan_cli_command) is the display line: copy it and substitute the real values wherever it shows <redacted>, or send the args array spelled out as one line. The confirmation body shows it as the first thing the user reads, and the server checks it equals the line the args array spells: a mismatch is rejected without executing anything. Only a legacy caller that predates this field omits it, and the field is optional in the schema so such a call still reaches the gate instead of dying in validation.',
+    ),
+  args: stringArrayArg.describe('hcloud arguments, excluding the hcloud executable.'),
+  approvalToken: approvalTokenArg.describe(
+    'Required in token-approval mode (from huaweicloud_plan_cli_command); omit in ask mode, where the server-run gate confirms at run time.',
+  ),
+  approvedByUser: approvedByUserArg,
+  timeoutMs: numericArg.optional().describe('Optional timeout in milliseconds. Defaults to 60000.'),
+  maxRetries: numericArg.optional().describe('Optional retry count for transient network errors. Defaults to 1.'),
+  cwd: z.string().optional().describe('Optional working directory for the hcloud process.'),
+});
+const showProfileRedactedSchema = z.looseObject({
+  vendorConfirmed,
+  profile: z.string().optional().describe('Optional KooCLI profile name.'),
+});
+const listRegionsSchema = z.looseObject({ vendorConfirmed });
+
+// The pack's approval registration: the run face is plan-face tokenSource
+// (the plan tool mints, the gate never does). normalizeArgs returns the
+// binding value — the effective args after the leading-bin strip — so the
+// gate's hash, pin view, and ledger record equal what the plan minted
+// over. classify answers the consume's grant requirement with the same
+// pure strict view the trunk's embedded plan computed (a read-classified
+// command still executes on an unconfirmed token). The summarize view
+// never leaks raw args: the plan face redacts, and the summary names the
+// tool plus the redacted command echo.
+export const HUAWEICLOUD_CLI_APPROVAL_SPECS: Readonly<Record<'huaweicloud_run_approved_command', ApprovalSpec>> = {
+  huaweicloud_run_approved_command: {
+    domain: 'cli',
+    flavor: 'always',
+    tokenSource: 'plan-face',
+    normalizeArgs: (args) => stripLeadingHcloudBinArgs(providedStringArgs(args)).args,
+    commandAnchor: (bindingValue) => hcloudExecutableLines(bindingValue as string[]),
+    classify: (bindingValue) => (needsUserConfirmation(bindingValue as string[]) ? 'required' : 'none'),
+    assertArgsExecutable: (bindingValue, mode) => assertNoPlaceholderSecret(bindingValue as string[], mode),
+    summarize: (bindingValue) => {
+      const effective = bindingValue as string[];
+      // Round 10, G1: the summary is built from the REDACTED pin view, not
+      // the raw argument stream — the ApprovalSpec contract ("never the raw
+      // argument stream — a popup must not leak secrets") must hold for the
+      // one field PR-3's USER_CONFIRMATION_REQUIRED envelope and PR-4's
+      // elicitation form spread verbatim. pinViewArgs is the same redaction
+      // vocabulary the pin view uses; an unredactable summary would leak
+      // exactly what the pin view hides.
+      const redactedLine = ['hcloud', ...pinViewArgs(effective)].map((arg) => quoteShellArg(arg)).join(' ');
+      return {
+        summary: `huaweicloud_run_approved_command: ${redactedLine.slice(0, 200)}`,
+        argsHash: hashArgs(effective),
+        pinView: pinViewArgs(effective),
+        command: redactedLine,
+      };
+    },
+  },
+};
+
+export const HUAWEICLOUD_CLI_TOOLS = [
+  {
+    name: 'huaweicloud_check_cli',
+    description:
+      'Check whether Huawei Cloud KooCLI hcloud is installed and whether its version matches the plugin paired version. Returns redacted output. Vendor-gated (vendorConfirmed): call only when the vendor is established — see the vendorConfirmed parameter description; when unknown, ask which cloud the user means first.',
+    schema: checkCliSchema,
+    handler: handleCheckCli,
+  },
+  {
+    name: 'huaweicloud_plan_cli_command',
+    description:
+      "Classify and plan a Huawei Cloud hcloud command without executing it. When the result's userConfirmation.needed is true, the command waits on user confirmation before huaweicloud_run_approved_command will accept it: in the default token mode the USER runs the userConfirmation.command line (npx huaweicloud-devkit approve <approvalToken>) in their own terminal, and under DEVKIT_APPROVAL_MODE=ask the server raises the confirmation itself on the run call (an elicitation form, or an ASK_CONFIRMATION_REQUIRED chat round-trip) — no token is needed. Vendor-gated (vendorConfirmed): call only when the vendor is established — see the vendorConfirmed parameter description; when unknown, ask which cloud the user means first.",
+    schema: planCliCommandSchema,
+    handler: handlePlanCliCommand,
+  },
+  {
+    name: 'huaweicloud_run_readonly_command',
+    description:
+      'Run a read-only hcloud command through the toolkit safety policy and redact output. Vendor-gated (vendorConfirmed): call only when the vendor is established — see the vendorConfirmed parameter description; when unknown, ask which cloud the user means first.',
+    schema: runReadonlyCommandSchema,
+    handler: handleRunReadonlyCommand,
+  },
+  {
+    name: 'huaweicloud_list_operations',
+    description:
+      'List KooCLI operations for a Huawei Cloud service by running local/read-only hcloud <Service> --help. Vendor-gated (vendorConfirmed): call only when the vendor is established — see the vendorConfirmed parameter description; when unknown, ask which cloud the user means first.',
+    schema: listOperationsSchema,
+    handler: handleListOperations,
+  },
+  {
+    name: 'huaweicloud_run_approved_command',
+    description:
+      'Run a write-capable hcloud command only after the exact command has been shown and explicitly approved by the user. In the default token mode the user must also confirm the plan token in their own terminal (npx huaweicloud-devkit approve <token>) — a non-read command without that terminal confirmation is rejected with USER_CONFIRMATION_REQUIRED and the token stays usable. Under DEVKIT_APPROVAL_MODE=ask the confirmation runs on the server: on a client that supports MCP elicitation the devkit raises a form during this call (approve runs it once; dismiss, decline, or the timeout cancels it), and on any other client the call returns ASK_CONFIRMATION_REQUIRED, whose envelope carries the command line — show it to the user in chat, then retry the same call with approvedByUser: true, which is model-relayed posture trust. In both modes always send command: it is the line the user reads, and the server rejects a line that does not match args (COMMAND_ARGS_MISMATCH). Vendor-gated (vendorConfirmed): call only when the vendor is established — see the vendorConfirmed parameter description; when unknown, ask which cloud the user means first.',
+    schema: runApprovedCommandSchema,
+    handler: handleRunApprovedCommand,
+  },
+  {
+    name: 'huaweicloud_show_profile_redacted',
+    description:
+      'Inspect a KooCLI profile through hcloud configure show and return only redacted output. Vendor-gated (vendorConfirmed): call only when the vendor is established — see the vendorConfirmed parameter description; when unknown, ask which cloud the user means first.',
+    schema: showProfileRedactedSchema,
+    handler: handleShowProfileRedacted,
+  },
+  {
+    name: 'huaweicloud_list_regions',
+    description:
+      'List available Huawei Cloud regions. Returns region IDs, display names, and endpoints. Use when the agent needs to discover available regions before creating resources. Vendor-gated (vendorConfirmed): call only when the vendor is established — see the vendorConfirmed parameter description; when unknown, ask which cloud the user means first.',
+    schema: listRegionsSchema,
+    handler: handleListRegions,
+  },
+] as const satisfies readonly PackToolDefinition[];
+
+export type HuaweicloudCliToolName = (typeof HUAWEICLOUD_CLI_TOOLS)[number]['name'];
+
+// Schema map keyed by tool name for src/tool-schemas.ts: TOOL_SCHEMAS spreads
+// it in place, keeping the satisfies Record<ToolName, LooseToolSchema>
+// completeness check over every ToolName key.
+export const HUAWEICLOUD_CLI_TOOL_SCHEMAS: Readonly<Record<HuaweicloudCliToolName, LooseToolSchema>> = {
+  huaweicloud_check_cli: checkCliSchema,
+  huaweicloud_plan_cli_command: planCliCommandSchema,
+  huaweicloud_run_readonly_command: runReadonlyCommandSchema,
+  huaweicloud_list_operations: listOperationsSchema,
+  huaweicloud_run_approved_command: runApprovedCommandSchema,
+  huaweicloud_show_profile_redacted: showProfileRedactedSchema,
+  huaweicloud_list_regions: listRegionsSchema,
+};
+
+// Dispatch map merged into PACK_TOOL_HANDLERS in packs/registry.ts. Typed
+// over HuaweicloudCliToolName, so a tool added to HUAWEICLOUD_CLI_TOOLS
+// without a handler entry here — or the reverse — fails to compile instead
+// of failing at runtime.
+export const HUAWEICLOUD_CLI_TOOL_HANDLERS: Readonly<Record<HuaweicloudCliToolName, PackToolDefinition['handler']>> = {
+  huaweicloud_check_cli: handleCheckCli,
+  huaweicloud_plan_cli_command: handlePlanCliCommand,
+  huaweicloud_run_readonly_command: handleRunReadonlyCommand,
+  huaweicloud_list_operations: handleListOperations,
+  huaweicloud_run_approved_command: handleRunApprovedCommand,
+  huaweicloud_show_profile_redacted: handleShowProfileRedacted,
+  huaweicloud_list_regions: handleListRegions,
+};

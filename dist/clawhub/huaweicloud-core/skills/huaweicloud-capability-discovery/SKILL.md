@@ -1,7 +1,9 @@
 ---
 name: huaweicloud-capability-discovery
-description: Discover Huawei Cloud capabilities for an agent task. Use when the user asks what Huawei Cloud service, Skill, CLI command, API, SDK, or document should be used, or when a request is scenario-shaped and needs capability selection before implementation.
+description: Discover Huawei Cloud capabilities for an agent task. Use when the user asks what Huawei Cloud service, Skill, CLI command, API, SDK, or document should be used, or when a Huawei Cloud request is scenario-shaped and needs capability selection before implementation. A request that names no cloud vendor is not thereby a Huawei Cloud task: when the vendor is unknown and cannot be inferred (explicit mention, hcloud/KooCLI artifacts, myhuaweicloud endpoints, Huawei region IDs, earlier turns), ask which cloud the user means before routing here — scenario shape alone is not vendor evidence. Cloud-facing tools take a vendorConfirmed parameter — pass the user’s establishing words, never an invented quote.
 ---
+
+<!-- generated from src/packs/core/skills/huaweicloud-capability-discovery - do not edit -->
 
 # Huawei Cloud Capability Discovery
 
@@ -13,17 +15,18 @@ Use this skill to turn vague developer intent into a precise Huawei Cloud capabi
 
 1. Classify the goal: application hosting, compute, container, serverless, storage, database, network, security, observability, AI, data, migration, cost, or troubleshooting.
 2. Search Huawei Cloud Skills first when the task is scenario-based or operational.
-3. Use official docs for exact service limits, API request/response fields, regions, and pricing-sensitive behavior.
-4. Prefer KooCLI for local read-only discovery after auth is configured.
-5. Before using KooCLI, discover exact operation names with `hcloud <Service> --help`; do not guess from intuition. Examples: list ECS instances with `ECS ListServersDetails`, create ECS with `ECS CreateServers`, inspect images through `IMS GlanceShowImage`.
-6. Prefer SDK docs when the deliverable is application code.
-7. Prefer MCP only when an approved Huawei Cloud MCP tool exists for the needed operation.
-8. Treat Terraform as a secondary V1 path for reviewed IaC, not the default.
-9. When no built-in devkit skill matches:
-   a. Search: use `huaweicloud_search_marketplace` to find a matching skill in the community marketplace
-   b. Install: use the `installCommand` returned by the marketplace tool — it downloads the skill repo ZIP over HTTP and copies the skill folder into the agent skills directory. **No git is required** (`npx skills add` needs git on PATH, which is often absent on Windows Server/sandbox environments). Replace the `<your-agent-skills-dir>` placeholder with this agent's skills directory (Claude Code `~/.claude/skills`, OpenCode `~/.config/opencode/skills`, Cursor `~/.cursor/skills`) before running. If the command reports `SKILL_SRC_NOT_FOUND` (mis-pathed skill location) or the HTTP download itself fails, follow the returned `installHint`: download `https://github.com/huaweicloud/huaweicloud-skills/archive/refs/heads/master.zip` manually, extract it, copy the skill folder, and confirm to the user how it was installed. Never auto-install git just to fetch a skill.
-   c. Execute: load the installed skill and follow its procedure
-10. When the deliverable is a PPT, architecture diagram (draw.io), or frontend page that needs official Huawei Cloud service logos, use the `huaweicloud_get_service_icon` MCP tool to get logo URLs from the official Icons library instead of guessing or hotlinking unofficial images.
+3. Discover devkit capability packs: call `huaweicloud_list_packs` for the pack overview, then `huaweicloud_pack_info` for a pack's tools and claimed skills. `huaweicloud_list_skills` is the effective catalog — which skills are ENABLED is pack-gated and can change at runtime (a `huawei-*` service skill absent from it belongs to a trimmed pack; the six `huaweicloud-*` meta-skills never appear in it and are always available) — and on stdio sessions its payload carries skillRoot, the skills tree's location (the same path the MCP server instructions state at initialize), so keep it for the session (that skillRoot is the ONLY root for pack-owned service skills — on directory-loading agents, the native directory holding the six `huaweicloud-*` meta-skill copies is a different root: never guess a service skill's path by analogy to it, and do not fire a guessed read in parallel with the catalog call); pick the skill from it, then attempt the direct read — read the skill's SKILL.md and references/ under it directly, no reachability pre-check — otherwise load it with `huaweicloud_retrieve_skill` when the attempted read fails or is denied (the loader needs no file access). When a needed pack reports `enabled: false`, ask the user first, then enable it for the current session with `huaweicloud_packs_configure` — the operator may have trimmed that pack on purpose (session-scoped; the operator's `DEVKIT_PACKS` posture returns on restart).
+4. For exact service limits, API request/response fields, regions, and pricing-sensitive behavior: prefer the OpenAPI catalog (`huaweicloud_gateway_call` with `tool: search_apis` → `list_apis` → `get_api`, see `huawei-openapi`) over web docs when the operation may need executing — the catalog covers 300+ products and feeds the delegated gateway execution face (engine-gated; see `huawei-openapi`). Fall back to official docs for pricing and quota policy.
+5. Prefer KooCLI for local read-only discovery after auth is configured.
+6. Before using KooCLI, discover exact operation names with `hcloud <Service> --help`; do not guess from intuition. Examples: list ECS instances with `ECS ListServersDetails`, create ECS with `ECS CreateServers`, inspect images through `IMS GlanceShowImage`.
+7. Prefer SDK docs when the deliverable is application code.
+8. Prefer MCP only when an approved Huawei Cloud MCP tool exists for the needed operation.
+9. Treat Terraform as a secondary V1 path for reviewed IaC, not the default.
+10. When no built-in devkit skill matches:
+    a. Search: use `huaweicloud_search_marketplace` to find a matching skill in the community marketplace
+    b. Install: use the `installCommand` returned by the marketplace tool — it downloads the skill repo ZIP over HTTP and copies the skill folder into the agent skills directory. **No git is required** (`npx skills add` needs git on PATH, which is often absent on Windows Server/sandbox environments). Replace the `<your-agent-skills-dir>` placeholder with this agent's skills directory (Claude Code `~/.claude/skills`, OpenCode `~/.config/opencode/skills`, Cursor `~/.cursor/skills`) before running. If the command reports `SKILL_SRC_NOT_FOUND` (mis-pathed skill location) or the HTTP download itself fails, follow the returned `installHint`: download `https://github.com/huaweicloud/huaweicloud-skills/archive/refs/heads/master.zip` manually, extract it, copy the skill folder, and confirm to the user how it was installed. Never auto-install git just to fetch a skill.
+    c. Execute: load the installed skill and follow its procedure
+11. When the deliverable is a PPT, architecture diagram (draw.io), or frontend page that needs official Huawei Cloud service logos, use the `huaweicloud_get_service_icon` MCP tool to get logo URLs from the official Icons library instead of guessing or hotlinking unofficial images.
 
 ## Scenario Routing
 
@@ -43,7 +46,7 @@ Route to the sandbox when the developer signals free/quick preview intent ("免�
 
 ## Deployment Target Options (MANDATORY — use the `question` tool)
 
-When the intent is to **deploy, host, or preview a web app or static website** and the developer has not named a target, do NOT default to OBS or any single service. **NEVER infer or default the target** when it is unstated. You MUST present the options via the `question` tool and obtain an explicit choice before calling any deploy tool, recommending the sandbox first: ① huawei-sandbox (recommended — temporary runtime, instant preview URL) ② huawei-obs (long-term static hosting/CDN; 需提前准备好自定义域名) ③ huawei-ecs (需搭配弹性公网IP/EIP 才能公网访问) ④ huawei-cce. Only follow an explicit target when the developer names one; "部署到华为云" alone is NOT a named target — still ask.
+When the intent is to **deploy, host, or preview a web app or static website** and the developer has not named a target, do NOT default to OBS or any single service. **NEVER infer or default the target** when it is unstated. You MUST present the options via the `question` tool (the host agent's interactive-question tool; plain-conversation ask when the host has none) and obtain an explicit choice before calling any deploy tool, recommending the sandbox first: ① huawei-sandbox (recommended — temporary runtime, instant preview URL) ② huawei-obs (long-term static hosting/CDN; 需提前准备好自定义域名) ③ huawei-ecs (需搭配弹性公网IP/EIP 才能公网访问) ④ huawei-cce. Only follow an explicit target when the developer names one; "部署到华为云" alone is NOT a named target — still ask.
 
 ## Region Intent
 

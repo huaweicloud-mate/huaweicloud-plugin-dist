@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-apig-instance-management - do not edit -->
+
 # Verification Method
 
 Each `huawei_*` action must be verified after execution. Read-only actions are
@@ -17,7 +19,7 @@ verified directly from the command output; mutating actions require a read-back
 | `huawei_list_apig_access_control_policies` | Response contains `acls[]` with `id`, `acl_name`, `acl_type`, `acl_value`, `entity_type`                                                                                                                                 |
 
 ```bash
-# Example verification (all commands wrapped per the mandatory reporting rule)
+# Example verification (commands optionally wrapped (the wrapper is OPTIONAL))
 skill-quality-cli run --skill-name huawei-cloud-apig-instance-management -- hcloud APIG ListInstancesV2 --cli-region={region} --cli-output=json | jq '.instances[] | {id, name, status, eip_address}'
 ```
 
@@ -36,7 +38,7 @@ skill-quality-cli run --skill-name huawei-cloud-apig-instance-management -- hclo
 | `huawei_create_apig_instance`              | Poll `ListInstancesV2` until `status == "Running"` (5-15 min). Do NOT stop at `CreateSuccess`.                                                                                                                                                                                                   |
 | `huawei_add_apig_ingress_eip`              | Confirm via the `AddIngressEipV2` response/task acceptance, a retry returning `APIC.7711` ("Public inbound access is enabled"), or the EIP list in the APIG console. **Do NOT rely on `ListInstancesV2` `eip_address` as the sole evidence** — it can remain `null` for 8+ minutes after success |
 | `huawei_create_apig_api_group`             | `ListApiGroupsV2 --instance_id` contains the new group (match by name/id); capture `sl_domain`                                                                                                                                                                                                   |
-| `huawei_create_apig_api`                   | `ListApisV2 --instance_id --group_id` contains the new API. **Known limitation:** with KooCLI 7.2.12 an HTTP backend (`--backend_type=HTTP`) fails with APIG.2011 — use `MOCK`/`FUNCTION` backend or the console for HTTP backends                                                               |
+| `huawei_create_apig_api`                   | `ListApisV2 --instance_id --group_id` contains the new API. **Known limitation:** with KooCLI 7.2.12 an HTTP backend (`--backend_type=HTTP`) fails with APIG.2011 (unverified whether 7.3.12 fixes it) — use `MOCK`/`FUNCTION` backend or the console for HTTP backends                          |
 | `huawei_update_apig_api`                   | `ListApisV2` shows the updated fields (path, auth mode, etc.)                                                                                                                                                                                                                                    |
 | `huawei_publish_apig_api`                  | `ListApisV2` for the API shows a non-null `publish_id` (published). **`--env_id` must be the real environment ID** obtained from `hcloud APIG ListEnvironmentsV2 --cli-region={region} --instance_id={instance_id}` — the name `RELEASE` is rejected with APIG.3003                              |
 | `huawei_create_apig_throttling_policy`     | `ListRequestThrottlingPolicyV2 --instance_id` contains the new policy                                                                                                                                                                                                                            |
@@ -60,22 +62,12 @@ skill-quality-cli run --skill-name huawei-cloud-apig-instance-management -- hclo
 3. Mutating commands: preview the full command, get user confirmation, execute, then read back. Never skip the read-back.
 4. If a read-back fails, return the error and do not claim success.
 
-## 6. Quality reporting (CLI) verification
+## 6. Wrapper (OPTIONAL) sanity
 
 ```bash
-# 6.1 CLI install (idempotent) + PATH export
-export PATH="$HOME/.local/bin:$PATH"
-bash scripts/ensure_cli.sh
-command -v skill-quality-cli   # or ~/.local/bin/skill-quality-cli
-
-# 6.2 Wrapper mode: every hcloud command is wrapped (SKILL.md mandatory rule)
+command -v skill-quality-cli   # or ~/.local/bin/skill-quality-cli (OPTIONAL; bare hcloud is equivalent)
 skill-quality-cli run --skill-name huawei-cloud-apig-instance-management -- hcloud APIG ListInstancesV2 --cli-region={region} --limit=1
-
-# 6.3 E2E real delivery through the bundled carrier (must print [quality-report] OK trace_id=...)
-printf '{"session_id":"verify-apig","trigger_type":"workflow"}' > /tmp/qcfg.json
-SKILL_QUALITY_REPORT_VERBOSE=1 python3 scripts/cli/cli_entry.py --no-auto-upgrade \
-  report --skill-name huawei-cloud-apig-instance-management --status success --json /tmp/qcfg.json 2>&1 | tail -1
 ```
 
-Expected: step 6.3 prints `[quality-report] OK trace_id=<id>` (HTTP 200 from the quality endpoint);
-step 6.2 completes with its normal output/exit code unchanged if a live account is available.
+The wrapper is OPTIONAL: when absent, run the inner `hcloud` command from the examples
+directly. It performs no reporting and contacts no endpoint.

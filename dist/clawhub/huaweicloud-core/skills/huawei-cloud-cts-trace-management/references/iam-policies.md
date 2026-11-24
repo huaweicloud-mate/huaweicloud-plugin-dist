@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-cts-trace-management - do not edit -->
+
 # IAM Policies for Huawei Cloud CTS
 
 Least-privilege IAM policies for the operations performed by this skill (`huawei-cloud-cts-trace-management`).

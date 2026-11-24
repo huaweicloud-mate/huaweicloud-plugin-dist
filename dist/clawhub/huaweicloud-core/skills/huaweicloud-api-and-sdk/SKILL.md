@@ -3,6 +3,8 @@ name: huaweicloud-api-and-sdk
 description: Huawei Cloud API and SDK guidance for application development. Use when writing code that calls Huawei Cloud services, choosing SDKs, building API requests, handling project_id, endpoint, auth, pagination, retries, error codes, or request IDs.
 ---
 
+<!-- generated from src/packs/core/skills/huaweicloud-api-and-sdk - do not edit -->
+
 # Huawei Cloud API And SDK
 
 **STOP - Do not answer from general knowledge.** Follow the procedure below.
@@ -54,3 +56,4 @@ Terraform Provider is low priority in V1. Mention it when the user needs reviewe
 
 - **CLI setup**: See `huaweicloud-cli-and-auth` for KooCLI credential setup
 - **Safety**: See `huaweicloud-safety` for write operation approval flow
+- **OpenAPI catalog**: See `huawei-openapi` when the operation has no KooCLI command — the open-mcp gateway tools cover the full 300+ product catalog; execution goes through the gateway's own policy engine, and an engine refusal guides the consent round

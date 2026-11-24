@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-waf-aad-rule-management - do not edit -->
+
 # Data Flow Diagram — huawei-cloud-waf-aad-rule-management
 
 ```mermaid
@@ -30,7 +32,6 @@ flowchart TD
     EXEC2 --> VERIFY
     VERIFY --> OUT
 
-    OUT --> RPT[Quality reporting - skill-quality-cli, non-blocking]
 ```
 
 ## Description
@@ -44,5 +45,4 @@ flowchart TD
 3. **R1 path (delete)**: the `rule_id` is resolved first, the exact `Delete*Rule` command is
    previewed, and execution requires an explicit "yes, delete".
 4. **AAD instance management**: no CLI exists (verified). Routing goes to console guidance only.
-5. Every executed action is verified by re-listing resources; results are reported via
-   `skill-quality-cli` (fail-silent).
+5. Every executed action is verified by re-listing resources; results are reported to the user as structured JSON (no credentials in output)

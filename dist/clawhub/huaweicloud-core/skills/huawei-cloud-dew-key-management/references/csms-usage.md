@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-dew-key-management - do not edit -->
+
 # CSMS Usage Guide
 
 CSMS (Cloud Secret Management Service) manages secrets. **This skill only touches metadata —
@@ -5,13 +7,13 @@ secret values are never fetched into agent context.**
 
 ## Action reference
 
-| huawei_* action                      | CLI command                                                                                                      | Level      |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ---------- |
-| `huawei_list_csms_secrets`           | `hcloud CSMS ListSecrets --cli-region={region}`                                                                  | R3 auto    |
-| `huawei_describe_csms_secret`        | `hcloud CSMS ShowSecret --cli-region={region} --secret_name={name}`                                              | R3 auto    |
-| `huawei_list_csms_secret_versions`   | `hcloud CSMS ListSecretVersions --cli-region={region} --secret_name={name}`                                      | R3 auto    |
-| `huawei_enable_csms_secret_rotation` | `hcloud CSMS UpdateSecret --cli-region={region} --secret_name={name} --auto_rotation=true --rotation_period=30d` | R2 confirm |
-| `huawei_update_csms_secret_version`  | `hcloud CSMS RotateSecret --cli-region={region} --secret_name={name}`                                            | R1 confirm |
+| huawei_* action                      | CLI command                                                                                                                    | Level      |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| `huawei_list_csms_secrets`           | `hcloud CSMS ListSecrets --cli-region={region}`                                                                                | R3 auto    |
+| `huawei_describe_csms_secret`        | `hcloud CSMS ListSecrets --cli-region={region}` (describe from list metadata — `ShowSecret` is hook-blocked in v2 agent tools) | R3 auto    |
+| `huawei_list_csms_secret_versions`   | `hcloud CSMS ListSecretVersions --cli-region={region} --secret_name={name}`                                                    | R3 auto    |
+| `huawei_enable_csms_secret_rotation` | `hcloud CSMS UpdateSecret --cli-region={region} --secret_name={name} --auto_rotation=true --rotation_period=30d`               | R2 confirm |
+| `huawei_update_csms_secret_version`  | `hcloud CSMS RotateSecret --cli-region={region} --secret_name={name}`                                                          | R1 confirm |
 
 ## Examples
 
@@ -21,10 +23,12 @@ List secrets (metadata only):
 hcloud CSMS ListSecrets --cli-region=cn-north-4 --limit=50
 ```
 
-Describe a secret (rotation config, KMS key, status — no value):
+Describe a secret (the ListSecrets items carry the full Secret metadata incl. rotation
+config — `ShowSecret` adds nothing the agent needs and is hook-blocked in v2 agent
+tools: secret-adjacent reads fail closed):
 
 ```bash
-hcloud CSMS ShowSecret --cli-region=cn-north-4 --secret_name={secret_name}
+hcloud CSMS ListSecrets --cli-region=cn-north-4 --limit=50
 ```
 
 List versions and stages (no values):
@@ -89,16 +93,16 @@ data "huaweicloud_csms_secret" "db" {
 
 ## Policy rules
 
-| Operation                                               | Policy                                   |
-| ------------------------------------------------------- | ---------------------------------------- |
-| `hcloud CSMS ListSecrets`                               | **ALLOWED** (metadata only)              |
-| `hcloud CSMS ShowSecret`                                | **ALLOWED** (metadata only)              |
-| `hcloud CSMS ListSecretVersions`                        | **ALLOWED** (metadata only)              |
-| `hcloud CSMS UpdateSecret`                              | ALLOWED (R2 preview + confirm)           |
-| `hcloud CSMS RotateSecret`                              | ALLOWED (R1 preview + confirm)           |
-| `hcloud CSMS DownloadSecretBlob`                        | **BLOCKED** — use runtime injection      |
-| `hcloud CSMS ShowSecretVersion` (value field)           | **BLOCKED** — never render secret values |
-| `hcloud CSMS CreateSecretReference` / value-based reads | **BLOCKED**                              |
+| Operation                                                          | Policy                                                                    |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `hcloud CSMS ListSecrets`                                          | **ALLOWED** (metadata only)                                               |
+| `hcloud CSMS ShowSecret`                                           | **BLOCKED** in v2 agent tools (hook vocabulary; use ListSecrets metadata) |
+| `hcloud CSMS ListSecretVersions`                                   | **ALLOWED** (metadata only)                                               |
+| `hcloud CSMS UpdateSecret`                                         | ALLOWED (R2 preview + confirm)                                            |
+| `hcloud CSMS RotateSecret`                                         | ALLOWED (R1 preview + confirm)                                            |
+| `hcloud CSMS DownloadSecretBlob`                                   | **BLOCKED** — use runtime injection                                       |
+| `hcloud CSMS ShowSecretVersion` (value field)                      | **BLOCKED** — never render secret values                                  |
+| Value-based secret reads (any operation returning `secret_string`) | **BLOCKED** — runtime injection only                                      |
 
 Endpoint (verified): `GET /v1/{project_id}/secrets`, `GET /v1/{project_id}/secrets/{secret_name}`,
 `GET /v1/{project_id}/secrets/{secret_name}/versions`,

@@ -1,3 +1,5 @@
+<!-- generated from src/packs/sandbox/skills/huawei-sandbox - do not edit -->
+
 # Tunnel Persistence: Renewal, Re-attach, and the Keepalive Watchdog
 
 DevBridge tunnel URLs are bound to the tunnel ID, not to the host process. The
@@ -8,7 +10,9 @@ URLs** — a tunnel whose record is lost cannot be recovered with the same URL.
 
 All values below are **measured** (2026-10 tunnel-persistence test), not
 inferred. Plugin automation: `huaweicloud_sandbox_renew_tunnel` and
-`huaweicloud_sandbox_keepalive_watchdog`.
+`huaweicloud_sandbox_keepalive_watchdog` — and every
+`huaweicloud_sandbox_expose_tunnel` AUTO-ENROLLS the new tunnel into the
+watchdog (merged into the existing list; `keepalive: false` opts out).
 
 ## Rolling-window expiry (measured)
 
@@ -86,7 +90,10 @@ while true; do
       LAST_RENEW[$ID]=$NOW
     fi
     # Layer 3: health check every 5 min (loop sleep), log on non-200/304
-    HC=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL/" 2>/dev/null || echo "000")
+    # --noproxy '*' is MANDATORY (#1000): the injected sandbox proxy does not
+    # route the tunnel domain — a proxied check logs 502/404 fakes for a
+    # healthy tunnel (main's own manual copy missed this).
+    HC=$(curl -s --noproxy '*' -o /dev/null -w "%{http_code}" --max-time 10 "$URL/" 2>/dev/null)
     [ "$HC" != "200" ] && [ "$HC" != "304" ] \
       && echo "$TS health $ID WARN http=$HC" >> /tmp/tunnel-keepalive.log
   done

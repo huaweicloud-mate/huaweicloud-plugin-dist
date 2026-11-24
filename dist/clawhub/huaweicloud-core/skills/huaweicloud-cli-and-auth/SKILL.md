@@ -3,6 +3,8 @@ name: huaweicloud-cli-and-auth
 description: Safe Huawei Cloud KooCLI usage and authentication guidance. Use when working with hcloud, KooCLI, profiles, AK/SK, regions, projects, endpoints, CLI output, credential errors, or local Huawei Cloud account context.
 ---
 
+<!-- generated from src/packs/core/skills/huaweicloud-cli-and-auth - do not edit -->
+
 # Huawei Cloud CLI And Auth
 
 **STOP - Do not answer from general knowledge.** Follow the procedure below.
@@ -37,7 +39,7 @@ tar -zxvf huaweicloud-cli-linux-arm64.tar.gz
 Move to PATH: `mv $(pwd)/hcloud ~/.local/bin/`
 Verify: `hcloud version`
 
-One-liner (installs `latest`, may drift from v7.2.12):
+One-liner (installs `latest`, may drift from v7.3.12):
 
 ```bash
 curl -sSL https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/hcloud_install.sh -o ./hcloud_install.sh && bash ./hcloud_install.sh -y
@@ -59,20 +61,13 @@ tar -zxvf huaweicloud-cli-mac-arm64.tar.gz
 Move to PATH: `mv $(pwd)/hcloud /usr/local/bin/`
 Verify: `hcloud version`
 
-One-liner (installs `latest`, may drift from v7.2.12):
+One-liner (installs `latest`, may drift from v7.3.12):
 
 ```bash
 curl -sSL https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/hcloud_install.sh -o ./hcloud_install.sh && bash ./hcloud_install.sh -y
 ```
 
-**No restart needed after install**: DevKit locates `hcloud` dynamically on every
-call — it checks `HCLOUD_BIN`, then the fixed install dirs (`~/.local/bin/hcloud`
-on Linux, `/usr/local/bin/hcloud` on macOS, `~/hcloud/hcloud.exe` on Windows),
-then PATH. Once `install-hcloud` or the background auto-install writes the binary
-to one of those dirs, the very next `check_cli` / `run_*` call uses it. Do not
-tell users to restart the agent.
-
-Agent processes find executables through `PATH`; `HCLOUD_BIN` overrides it. DevKit re-locates hcloud from its **fixed install dirs** on every call, so a freshly installed binary (`~/.local/bin` on Linux, `/usr/local/bin` on macOS, `~/hcloud` on Windows) or a re-set `HCLOUD_BIN` is picked up by the next `check_cli` / `run_*` call without restarting the agent. A custom `PATH` entry is only honored via `HCLOUD_BIN` or the PATH locator fallback, and shell `PATH` changes take effect only for processes started after the update.
+**No restart needed after install**: DevKit locates `hcloud` dynamically on every call — it checks `HCLOUD_BIN`, then the fixed install dirs (`~/.local/bin/hcloud` on Linux, `/usr/local/bin/hcloud` on macOS, `~/hcloud/hcloud.exe` on Windows), then PATH. Once `install-hcloud` or the background auto-install writes the binary to one of those dirs, the very next `check_cli` / `run_*` call uses it. A custom `PATH` entry is only honored via `HCLOUD_BIN` or the PATH locator fallback, and a re-set `HCLOUD_BIN` is picked up by the next `check_cli` / `run_*` call without restarting the agent; shell `PATH` changes take effect only for processes started after the update. Do not tell users to restart the agent.
 
 ## Configure Credentials Outside Chat
 
@@ -93,7 +88,7 @@ Agent processes find executables through `PATH`; `HCLOUD_BIN` overrides it. DevK
 4. Inspect profile and region only through redacted tooling.
 5. **Always discover exact operation names and parameters with `--help` BEFORE constructing the command.** Never guess from general knowledge — parameter names change across API versions. The discovery chain is:
    1. `hcloud --help` → available services
-   2. `hcloud <Service> --help` → operations (use `huaweicloud_list_operations` or step 2/3 directly)
+   2. `hcloud <Service> --help` → operations (use `huaweicloud_list_operations` or steps 2/3 directly)
    3. `hcloud <Service> <Operation> --help` → exact parameter names, required flags, and value formats
    4. Execute only after the help text confirms the operation and its parameters
    - Service skills may skip steps 1-2 when they already provide the correct service and operation names, but step 3 (`<Operation> --help`) is never skippable before planning a write operation or a command with parameters.
@@ -104,7 +99,10 @@ Agent processes find executables through `PATH`; `HCLOUD_BIN` overrides it. DevK
    - Read-only: `List*`, `Show*`, `Get*`, `Describe*`.
    - Write: `Create*`, `Delete*`, `Update*`, `Resize*`, `Start*`, `Stop*`, `Authorize*`, and similar.
    - Secret: any operation returning secret string, binary secret, token, or password.
-9. For write operations, show the exact command and ask for explicit approval.
+9. For write operations, follow the approval contract:
+   - Call `huaweicloud_plan_cli_command` and read `userConfirmation`. When `needed` is true, show the user the command echo.
+   - Token mode (the default): show the `userConfirmation.command` line; the user runs `npx huaweicloud-devkit approve <approvalToken>` in their own terminal. Never run it yourself. First use: the user runs `npx huaweicloud-devkit pin` once in their own terminal to enroll the approvals PIN. Then call `huaweicloud_run_approved_command` with that token; an unconfirmed non-read command is rejected with `USER_CONFIRMATION_REQUIRED`, and the token stays usable, so retry the same call after the user confirms.
+   - Ask mode (`userConfirmation.mode` is `ask`): no terminal line and no token — call `huaweicloud_run_approved_command` with the same args (the `command` display field is recommended but optional: without it the confirmation shows the derived redacted line). The server runs the confirmation for every call shape: an elicitation-capable client renders a form during the call, and any other client answers with `ASK_CONFIRMATION_REQUIRED` (show the command in chat, then retry with `approvedByUser: true`).
 
 ## KooCLI Syntax Notes
 
@@ -155,7 +153,7 @@ Credentials are resolved in this order (highest priority first):
 | 5        | S1 global file (no session flag)                | `auth init` permanent credentials                                                          | Permanent (S1)              |
 | 6        | KooCLI profile                                  | `~/.hcloud/config.json` (KooCLI commands only)                                             | Permanent                   |
 
-When switching accounts within the same Agent session, use `huaweicloud_auth_init` to set runtime credentials (overrides all sources for the current MCP process), or `huaweicloud_auth_switch action=persist`, which writes S1 with `configuredBySession: true` so the session-configured account outranks `HW_ACCESS_KEY` / `HW_SECRET_KEY`. Note: running `auth init` clears the configuredBySession flag.
+When switching accounts within the same Agent session, use `huaweicloud_auth_init` to set runtime credentials (overrides all sources for the current MCP process), or `huaweicloud_auth_switch action=persist`, which writes S1 with `configuredBySession: true` so the session-configured account outranks `HW_ACCESS_KEY` / `HW_SECRET_KEY`. Note: running `auth init` clears the configuredBySession flag. Both calls are approval-gated: the user must confirm the switch, and the confirmation view names the target account fingerprint and the credential source — in the default token mode confirm the returned approvalToken in your own terminal (`npx huaweicloud-devkit approve <token>`), and under `DEVKIT_APPROVAL_MODE=ask` the server raises the confirmation itself (an elicitation form, or the `ASK_CONFIRMATION_REQUIRED` chat round-trip whose retry carries `approvedByUser: true`).
 
 ## Global Services & domain-id
 

@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-cts-trace-management - do not edit -->
+
 # Verification Method for huawei-cloud-cts-trace-management
 
 This document defines how to verify each action class of the skill.
@@ -58,3 +60,13 @@ Deleting a tracker does not remove already-collected traces.
 
 All positive commands return valid JSON; all negative tests fail with a clear error; no command
 requires user confirmation for read-only actions; write actions require confirmation.
+
+## Wrapper (OPTIONAL) sanity
+
+```bash
+command -v skill-quality-cli   # or ~/.local/bin/skill-quality-cli (OPTIONAL; bare hcloud is equivalent)
+skill-quality-cli run --skill-name huawei-cloud-cts-trace-management -- hcloud CTS ListTrackers --cli-region={region}
+```
+
+The wrapper is OPTIONAL: when absent, run the inner `hcloud` command from the examples
+directly. It performs no reporting and contacts no endpoint.

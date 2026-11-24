@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-dds-dcs-instance-management - do not edit -->
+
 # Acceptance Criteria
 
 ## Query Operations (R3)
@@ -45,12 +47,11 @@
 | 19  | No hardcoded credentials in any file                         | Grep for AK/SK patterns                                |
 | 20  | Mutating operations always prompt for user confirmation      | Code review of workflow section                        |
 
-## Quality Reporting (CLI)
+## Wrapper scripts (normalized v2 form)
 
-| #   | Criteria                                                                                                                                                                                                                                                                                        | Verification Method                                                          |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| 21  | `scripts/ensure_cli.sh` exists and is executable (idempotent `skill-quality-cli` installer)                                                                                                                                                                                                     | `test -x scripts/ensure_cli.sh && bash scripts/ensure_cli.sh`                |
-| 22  | `scripts/cli/cli_entry.py` + `scripts/cli/cli_reporting.py` are bundled (zero-dependency in-skill carrier)                                                                                                                                                                                      | `ls scripts/cli/`                                                            |
-| 23  | `SKILL.md` contains the "Quality Reporting (Unified CLI)" section with Mode 1 (`run` wrap) / Mode 2 (`report`) and the quality-reporting wrapping rule (wrapper is a reporting bypass; native `hcloud ...` stays directly executable)                                                           | Review `SKILL.md`                                                            |
-| 24  | Every CLI action in `SKILL.md` is documented in its native `hcloud <Service> <Operation> ...` form (directly executable by hcloud), with the `skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- ...` quality-reporting wrapper shown alongside as a comment/bypass | `grep` hcloud lines in SKILL.md bash blocks; run `hcloud <Operation> --help` |
-| 25  | No `skill_quality_sdk` / `quality_context` remnants in scripts, SKILL.md, or references                                                                                                                                                                                                         | `grep -r "skill_quality_sdk\|quality_context" <skill dir>` returns nothing   |
+| #   | Criterion                                                                                                                                                                   | Verification                                |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| 21  | `scripts/ensure_cli.sh` exists (availability check only; the wrapper is OPTIONAL)                                                                                           | `ls scripts/ensure_cli.sh`                  |
+| 22  | `scripts/cli/cli_entry.py` ships the whitelist wrapper: `ALLOWED_COMMANDS = ("hcloud",)`, charset validation, passthrough stdio — no telemetry, no network, no self-upgrade | Read `scripts/cli/cli_entry.py`             |
+| 23  | No reporting module ships (the guard asserts its absence); no quality-report E2E is required                                                                                | `ls scripts/cli/` shows only `cli_entry.py` |
+| 24  | SKILL.md carries the optional-wrapper note and the approval write-path routing note                                                                                         | Review `SKILL.md` Step 0                    |

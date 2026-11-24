@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-dew-key-management - do not edit -->
+
 # Verification Method — huawei-cloud-dew-key-management
 
 This document describes how to verify the skill end-to-end after installation.
@@ -5,9 +7,9 @@ This document describes how to verify the skill end-to-end after installation.
 ## 1. Prerequisite checks
 
 ```bash
-# hcloud installed and authenticated
-hcloud --version
-hcloud configure list          # profile must show a real accessKeyId
+# hcloud installed and authenticated (raw `hcloud configure list` is
+# hook-blocked in agent tools — status via huaweicloud_show_profile_redacted)
+hcloud version
 
 # DEW/CTS services reachable via CLI
 hcloud CSMS --help > /dev/null && echo "CSMS OK"
@@ -21,8 +23,10 @@ hcloud CTS --help > /dev/null && echo "CTS OK"
 # 1) List secrets (metadata only)
 hcloud CSMS ListSecrets --cli-region={region} --limit=10
 
-# 2) Describe a secret (pick a secret name from step 1; metadata only)
-hcloud CSMS ShowSecret --cli-region={region} --secret_name={secret_name}
+# 2) Describe a secret (pick a secret name from step 1; describe is served from the list
+#    metadata — CSMS ShowSecret is hook-blocked in v2 agent tools; the list
+#    items carry the full Secret metadata incl. rotation config)
+hcloud CSMS ListSecrets --cli-region={region} --limit=10
 
 # 3) List versions (no values)
 hcloud CSMS ListSecretVersions --cli-region={region} --secret_name={secret_name} --limit=10
@@ -63,7 +67,9 @@ Use a **dedicated sandbox project/account**; never run against production.
      --auto_rotation=true --rotation_period=30d
    ```
 
-   Verify: `hcloud CSMS ShowSecret` shows `auto_rotation: true`.
+   Verify: rotation applied — re-run ListSecrets and read the `auto_rotation` /
+   `rotation_period` fields of the secret; a follow-up CTS ListTraces
+   (service_type=CSMS) shows the UpdateSecret event.
 
 3. **huawei_update_csms_secret_version (R1)**
 
@@ -92,4 +98,4 @@ Use a **dedicated sandbox project/account**; never run against production.
 - `hcloud CSMS DownloadSecretBlob ...` and `hcloud KMS DecryptData ...` must be **blocked**
   by the action policy (verify the agent refuses / the MCP safety policy rejects the call).
 - Management commands without user confirmation must not execute (R1/R2 gate).
-- `--help` parameter names must match the SKILL.md tables (KooCLI 7.2.12 baseline).
+- `--help` parameter names must match the SKILL.md tables (KooCLI 7.2.12 baseline; parameter surfaces re-checked identical on 7.3.12).

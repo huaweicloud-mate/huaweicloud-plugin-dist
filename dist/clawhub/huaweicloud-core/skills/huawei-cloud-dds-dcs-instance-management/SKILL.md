@@ -1,10 +1,10 @@
 ---
 name: huawei-cloud-dds-dcs-instance-management
-description: |
-  Huawei Cloud DDS (Document Database Service) and DCS (Distributed Cache Service) unified management skill. Provides 16 operations across five capability domains: (1) Query — list/get DDS/DCS instances, DCS node info, DCS custom templates; (2) Analysis — analyze DDS deployment architecture and DCS security posture; (3) DDS Management — create instance, add read-only/sharding nodes, create backup, delete instance; (4) DCS Management — create instance, create custom template, delete instance, restart instance; (5) Multi-mode execution using hcloud CLI for available operations and huaweicloudsdk Python SDK as fallback. Auth via AK/SK environment variables or hcloud profile. All mutating operations require explicit user confirmation.
-  Triggers include: "DDS","DCS","文档数据库","分布式缓存","数据库实例","缓存实例","MongoDB","Redis","Memcached","DDS实例","DCS实例","数据库运维","缓存运维","文档数据库查询","分布式缓存查询","DDS管理","DCS管理","缓存节点","自定义模板","document database","distributed cache","DDS instances","DCS instances","MongoDB cluster","Redis cache","dds-dcs".
+description: 'Huawei Cloud DDS (Document Database Service) and DCS (Distributed Cache Service) unified management skill. Provides 16 operations across five capability domains: (1) Query — list/get DDS/DCS instances, DCS node info, DCS custom templates; (2) Analysis — analyze DDS deployment architecture and DCS security posture; (3) DDS Management — create instance, add read-only/sharding nodes, create backup, delete instance; (4) DCS Management — create instance, create custom template, delete instance, restart instance; (5) Multi-mode execution using hcloud CLI for available operations and huaweicloudsdk Python SDK as fallback. Auth via AK/SK environment variables or hcloud profile. All mutating operations require explicit user confirmation. Triggers include: "DDS","DCS","文档数据库","分布式缓存","数据库实例","缓存实例","MongoDB","Redis","Memcached","DDS实例","DCS实例","数据库运维","缓存运维","文档数据库查询","分布式缓存查询","DDS管理","DCS管理","缓存节点","自定义模板","document database","distributed cache","DDS instances","DCS instances","MongoDB cluster","Redis cache","dds-dcs".'
 tags: [huawei-cloud, dds, dcs, database, cache]
 ---
+
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-dds-dcs-instance-management - do not edit -->
 
 # Huawei Cloud DDS & DCS Management Skill
 
@@ -14,16 +14,11 @@ tags: [huawei-cloud, dds, dcs, database, cache]
 
 <!-- cli-install-version: 3.9.0 -->
 
-## Step 0: Install skill-quality-cli (idempotent, skip if already installed)
+## Step 0: Optional command wrapper (skip freely)
 
-The CLI installs into `~/.local/bin/`, which is **not always in `$PATH`** (bare `skill-quality-cli` can fail with exit 127). Export it first, then run the installer (it also persists the PATH export into `~/.bashrc` / `~/.profile` for future shells):
+> **The wrapper is OPTIONAL.** When `skill-quality-cli` is installed, the wrapped examples in this skill run as written; when it is absent, run the inner `hcloud` command bare — identical semantics (the devkit's safety layer classifies both forms the same way). Check availability with `bash scripts/ensure_cli.sh` (existence check only; no install, no PATH persistence, no network).
 
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-bash scripts/ensure_cli.sh
-```
-
-> The script detects whether `skill-quality-cli` is available (via PATH, falling back to the absolute path `~/.local/bin/skill-quality-cli`); if not, it **deploys the skill's own bundled CLI source** (`scripts/cli/cli_entry.py` + `scripts/cli/cli_reporting.py`) into `~/.local/bin/` as a local wrapper — **no external download, no runtime curl** (SC2 supply-chain safe, version pinned to the bundled `1.1.8`). It re-exports PATH for the current session and persists it into `~/.bashrc` / `~/.profile`. Silently skipped when the bundled source is missing — never blocks the business flow. If the bare command is still not found afterwards, call the absolute path: `~/.local/bin/skill-quality-cli`.
+**Write-path routing**: `hcloud` write operations in this skill go through the devkit's approval chain — present the planned command with `huaweicloud_plan_cli_command`, then execute with `huaweicloud_run_approved_command` (raw Bash writes are hook-blocked). Read operations may run bare or wrapped.
 
 ## Overview
 
@@ -59,7 +54,7 @@ This skill provides comprehensive management for two Huawei Cloud middleware ser
 
 ```
 User Request → Action Router
-  ├── DDS Actions → hcloud DDS CLI (primary) → SDK fallback
+  ├── DDS Actions → hcloud DDS CLI (all DDS operations)
   └── DCS Actions → hcloud DCS CLI (primary) → SDK fallback (create_instance,
        show_nodes_information, list_config_templates, create_custom_template)
        → Result Formatting → Analysis & Recommendations
@@ -67,32 +62,30 @@ User Request → Action Router
 
 ---
 
+**Dependency**: `hcloud` for CLI operations; the Python SDK package (`huaweicloudsdkdcs`) only for the DCS SDK fallback operations — the optional `skill-quality-cli` wrapper is a local convenience only (no telemetry, no network).
+
 ## Prerequisites
 
-| Requirement         | Description                                                             |
-| ------------------- | ----------------------------------------------------------------------- |
-| **hcloud CLI**      | Installed and authenticated. See `references/cli-installation-guide.md` |
-| **Python 3.8+**     | For SDK fallback operations (DCS)                                       |
-| **SDK packages**    | `pip install huaweicloudsdkdcs huaweicloudsdkdds`                       |
-| **AK/SK Auth**      | `HUAWEI_ACCESS_KEY`/`HUAWEI_SECRET_KEY` or `HWC_AK`/`HWC_SK` env vars   |
-| **IAM Permissions** | DDS and DCS read/write perms. See `references/iam-policies.md`          |
-| **Default Region**  | `cn-north-4` (override with `--cli-region`)                             |
+| Requirement         | Description                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------- |
+| **hcloud CLI**      | Installed and authenticated. See `references/cli-installation-guide.md`                         |
+| **Python 3.8+**     | For SDK fallback operations (DCS)                                                               |
+| **SDK packages**    | `pip install huaweicloudsdkdcs huaweicloudsdkdds`                                               |
+| **AK/SK Auth**      | `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK` (or `HUAWEI_ACCESS_KEY`/`HUAWEI_SECRET_KEY`) env vars |
+| **IAM Permissions** | DDS and DCS read/write perms. See `references/iam-policies.md`                                  |
+| **Default Region**  | `cn-north-4` (override with `--cli-region`)                                                     |
 
-### Quality Reporting Environment Variables
-
-| Variable                   | Required | Description                                                             |
-| -------------------------- | -------- | ----------------------------------------------------------------------- |
-| `SKILL_QUALITY_ENDPOINT`   | No       | Report endpoint (default: skillsapi.developer.myhuaweicloud.com)        |
-| `SKILL_QUALITY_DISABLE`    | No       | Set `1` to disable (local debugging)                                    |
-| `SKILL_QUALITY_REPORT`     | No       | v1.1.8 opt-out: set `0` to skip reporting (command still runs)          |
-| `SKILL_QUALITY_SESSION_ID` | No       | Session ID override (v1.1.8 三渠道: `--session-id` > env > qcfg > host) |
-| `SKILL_QUALITY_TIMEOUT`    | No       | Timeout seconds (default 3)                                             |
-
----
+- **`skill-quality-cli`** — OPTIONAL; `bash scripts/ensure_cli.sh` only checks availability (bare `hcloud` is equivalent). The normalized wrapper has no upgrade subcommand; the shipped `scripts/cli/cli_entry.py` is the current version (re-copy it to refresh a manual deployment).
 
 ## Workflow
 
-> **命令书写约定（质量上报旁路说明）/ 命令可执行性说明（评测/解析要点）**: 本 Skill 的所有 CLI 命令均以可直接执行的 `hcloud <Service> <Operation> --key=value ...` 原生命令书写并逐条可单独执行（评测管线/解析器按此格式提取即可）。执行时应按需以 `skill-quality-cli run --skill-name <skill-name> -- <hcloud 命令>` 包装——`skill-quality-cli run` 仅为质量上报旁路（在命令前后插入 telemetry，原样透传命令），**不影响其后的 hcloud 命令本身的可执行性**（已由 `hcloud <Operation> --help` 实测验证）；命令语义、参数、返回均与直接执行完全一致。
+> **Command format.** Each command below is shown in its canonical bare
+> `hcloud DDS|DCS <Operation> ...` form — this is the syntax used for parameter
+> discovery (`--help`) and for execution. When the OPTIONAL
+> `skill-quality-cli` wrapper is installed, the equivalent wrapped form
+> works identically (see Step 0); when it is absent, run the bare form.
+>
+> **Always run `hcloud DDS|DCS <Operation> --cli-region={region} --help` before constructing a command** to discover the exact parameter names and required flags for the current KooCLI version. Do not answer from general knowledge.
 
 ### Query (R3) — Instance Listing & Details
 
@@ -111,18 +104,17 @@ echo b | hcloud DDS ListInstances --cli-region={region} --mode=ReplicaSet
 #   echo '{"query": {"mode": "ReplicaSet"}}' > /tmp/dds_mode.json
 #   hcloud DDS ListInstances --cli-region={region} --project_id={project_id} --cli-jsonInput=/tmp/dds_mode.json
 # Alternative without the prompt: list all and filter by `mode` client-side.
-# Quality-reporting wrapper (reporting bypass, command unchanged):
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS ListInstances --cli-region={region}
+# Wrapped equivalent (the wrapper is OPTIONAL):
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS ListInstances --cli-region={region}
 
 # List DCS instances
 hcloud DCS ListInstances --cli-region={region}
 hcloud DCS ListInstances --cli-region={region} --name={name}
 hcloud DCS ListInstances --cli-region={region} --instance_id={id}
 hcloud DCS ListInstances --cli-region={region} --status={status}
-# Note: `capacity` is NOT a filter of DCS ListInstances — it is only a
-# Create-time parameter. Filter the returned JSON by capacity client-side if needed.
-# Quality-reporting wrapper (reporting bypass, command unchanged):
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS ListInstances --cli-region={region}
+# Optional filter: --capacity={gb} (cache capacity in GB, per `DCS ListInstances --help`).
+# Wrapped equivalent (the wrapper is OPTIONAL):
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS ListInstances --cli-region={region}
 ```
 
 ### Query (R3) — DCS Node Information (SDK)
@@ -189,12 +181,11 @@ hcloud DDS ListStorageType --cli-region={region}
 hcloud DDS ShowEntityConfiguration --cli-region={region} --instance_id={id} --entity_id={entity_id}
 hcloud DDS ShowBackupPolicy --cli-region={region} --instance_id={id}
 
-# Quality-reporting wrapper (reporting bypass, command unchanged):
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS ListInstances --cli-region={region} --limit=100
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS ListFlavors --cli-region={region} --engine_name=DDS-Community
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS ListStorageType --cli-region={region}
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS ShowEntityConfiguration --cli-region={region} --instance_id={id} --entity_id={entity_id}
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS ShowBackupPolicy --cli-region={region} --instance_id={id}
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS ListInstances --cli-region={region} --limit=100
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS ListFlavors --cli-region={region} --engine_name=DDS-Community
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS ListStorageType --cli-region={region}
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS ShowEntityConfiguration --cli-region={region} --instance_id={id} --entity_id={entity_id}
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS ShowBackupPolicy --cli-region={region} --instance_id={id}
 ```
 
 ### Analysis (R3) — Analyze DCS Security
@@ -213,13 +204,12 @@ hcloud DCS ShowInstance --cli-region={region} --instance_id={id}
 hcloud DCS ListAclAccounts --cli-region={region} --instance_id={id}
 
 # Step 5: (SDK fallback) Inspect SSL/connection details via SDK — see the
-# "DCS Node Information (SDK)" example below; replace the request with ShowInstanceRequest.
+# "DCS Node Information (SDK)" example above; replace the request with ShowInstanceRequest.
 
-# Quality-reporting wrapper (reporting bypass, command unchanged):
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS ListInstances --cli-region={region}
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS ShowIpWhitelist --cli-region={region} --instance_id={id}
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS ShowInstance --cli-region={region} --instance_id={id}
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS ListAclAccounts --cli-region={region} --instance_id={id}
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS ListInstances --cli-region={region}
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS ShowIpWhitelist --cli-region={region} --instance_id={id}
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS ShowInstance --cli-region={region} --instance_id={id}
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS ListAclAccounts --cli-region={region} --instance_id={id}
 ```
 
 ### Management (R2) — Create DDS Instance
@@ -245,10 +235,10 @@ hcloud DDS CreateInstance --cli-region={region} \
 #   echo b | hcloud DDS CreateInstance --cli-region={region} ... (same args)
 #   echo b | hcloud DDS CreateInstance --cli-region={region} --name=my-dds --region={region} --availability_zone={az} --datastore.type=DDS-Community --datastore.version=5.0 --datastore.storage_engine=wiredTiger --mode=ReplicaSet --flavor.1.type=replica --flavor.1.num=3 --flavor.1.spec_code={spec_code} --vpc_id={vpc_id} --subnet_id={subnet} --security_group_id={sg}
 # Fully non-interactive alternative (no prompts, recommended for CI/automation):
-# NOTE: KooCLI 7.2.12 requires the API params to be wrapped under a "body" key
+# NOTE: KooCLI (verified 7.2.12 and 7.3.12) requires the API params to be wrapped under a "body" key
 # {vpc_id, subnet_id, security_group_id, region} are required body params besides
-# the direct flags shown above; `--project_id` is auto-resolved from the hcloud
-# profile unless overridden.
+# the direct flags shown above; `--project_id` is required on the `--cli-jsonInput`
+# path (unlike the bare form, where it is auto-resolved from the profile).
 #   cat > /tmp/dds_create.json <<'JSON'
 #   {"body":{"name":"my-dds","region":"{region}","availability_zone":"{az}","vpc_id":"{vpc_id}","subnet_id":"{subnet}","security_group_id":"{sg}",
 #    "mode":"ReplicaSet","datastore":{"type":"DDS-Community","version":"5.0","storage_engine":"wiredTiger"},
@@ -267,8 +257,6 @@ hcloud DDS CreateInstance --cli-region={region} \
   --flavor.1.spec_code={spec_code} \
   --vpc_id={vpc_id} --subnet_id={subnet} --security_group_id={sg}
 
-# Quality-reporting wrapper (reporting bypass, command unchanged; wrap the same line):
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS CreateInstance --cli-region={region} --name=my-dds --region={region} ...
 ```
 
 ### Management (R2) — Add DDS Read-only Node
@@ -278,8 +266,7 @@ hcloud DDS CreateInstance --cli-region={region} \
 ```bash
 # `--spec_code` is required (DDS AddReadonlyNode body param, e.g. dds.mongodb.c6.large.4.rr)
 hcloud DDS AddReadonlyNode --cli-region={region} --instance_id={instance_id} --num=1 --spec_code={spec_code}
-# Quality-reporting wrapper (reporting bypass, command unchanged):
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS AddReadonlyNode --cli-region={region} --instance_id={instance_id} --num=1 --spec_code={spec_code}
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS AddReadonlyNode --cli-region={region} --instance_id={instance_id} --num=1 --spec_code={spec_code}
 ```
 
 ### Management (R2) — Add DDS Sharding Node
@@ -290,16 +277,14 @@ hcloud DDS AddReadonlyNode --cli-region={region} --instance_id={instance_id} --n
 hcloud DDS AddShardingNode --cli-region={region} --instance_id={instance_id} --type=shard --num=2 --spec_code={spec}
 
 hcloud DDS AddShardingNode --cli-region={region} --instance_id={instance_id} --type=mongos --num=2 --spec_code={spec}
-# Quality-reporting wrapper (reporting bypass, command unchanged):
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS AddShardingNode --cli-region={region} --instance_id={instance_id} --type=shard --num=2 --spec_code={spec}
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS AddShardingNode --cli-region={region} --instance_id={instance_id} --type=shard --num=2 --spec_code={spec}
 ```
 
 ### Management (R2) — Create DDS Backup
 
 ```bash
 hcloud DDS CreateManualBackup --cli-region={region} --backup.instance_id={instance_id} --backup.name={backup_name}
-# Quality-reporting wrapper (reporting bypass, command unchanged):
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS CreateManualBackup --cli-region={region} --backup.instance_id={instance_id} --backup.name={backup_name}
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS CreateManualBackup --cli-region={region} --backup.instance_id={instance_id} --backup.name={backup_name}
 ```
 
 ### Management (R2) — Create DCS Instance (SDK)
@@ -324,6 +309,11 @@ body = CreateInstanceBody(
     engine="Redis",
     engine_version="5.0",
     capacity=1,
+    spec_code="{spec_code}",
+    # no_password_access defaults to False, and with False the API REQUIRES a
+    # password. True = VPC-internal access without a password (whitelist rules
+    # still apply). Pick one explicitly.
+    no_password_access=True,
     vpc_id="{vpc_id}",
     subnet_id="{subnet_id}",
     security_group_id="{sg_id}",
@@ -374,8 +364,7 @@ print(response)
 
 ```bash
 hcloud DDS DeleteInstance --cli-region={region} --instance_id={instance_id}
-# Quality-reporting wrapper (reporting bypass, command unchanged):
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS DeleteInstance --cli-region={region} --instance_id={instance_id}
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DDS DeleteInstance --cli-region={region} --instance_id={instance_id}
 ```
 
 ### Management (R1) — Delete DCS Instance
@@ -384,8 +373,7 @@ hcloud DDS DeleteInstance --cli-region={region} --instance_id={instance_id}
 
 ```bash
 hcloud DCS DeleteSingleInstance --cli-region={region} --instance_id={id}
-# Quality-reporting wrapper (reporting bypass, command unchanged):
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS DeleteSingleInstance --cli-region={region} --instance_id={id}
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS DeleteSingleInstance --cli-region={region} --instance_id={id}
 ```
 
 ### Management (R1) — Restart DCS Instance
@@ -402,26 +390,27 @@ hcloud DCS RestartOrFlushInstances --cli-region={region} --instances.1={instance
 # Restart multiple instances
 hcloud DCS RestartOrFlushInstances --cli-region={region} --instances.1={id1} --instances.2={id2} --action=restart
 
-# Quality-reporting wrapper (reporting bypass, command unchanged):
-#   skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS RestartOrFlushInstances --cli-region={region} --instances.1={instance_id} --action=restart
+skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- hcloud DCS RestartOrFlushInstances --cli-region={region} --instances.1={instance_id} --action=restart
 ```
 
 ---
 
 ## KooCLI Command Format Standard
 
-> **格式模板（占位示例，不可直接执行）**：`hcloud DDS|DCS <Operation> --cli-region=<region> [--key=value ...]`
+The generic invocation shape is `hcloud DDS|DCS <Operation> --cli-region=<region> [--key=value ...]`
+— this is a **format description only**: `<...>` and `[--key=value]` are placeholders, never executed verbatim.
 
-| Feature       | Description              | Example                           |
-| ------------- | ------------------------ | --------------------------------- |
-| Service       | Service name (uppercase) | `DDS`, `DCS`                      |
-| Operation     | PascalCase               | `ListInstances`, `CreateInstance` |
-| Region        | `--cli-region=value`     | `cn-north-4`                      |
-| Simple param  | `--key=value`            | `--instance_id=xxx`               |
-| Indexed param | `--key.N=value`          | `--flavor.1.num=3`                |
-| Nested param  | `--parent.child=value`   | `--datastore.type=DDS-Community`  |
+| Feature       | Description                                                        | Example                                                   |
+| ------------- | ------------------------------------------------------------------ | --------------------------------------------------------- |
+| Service       | Service name (uppercase)                                           | `DDS`, `DCS`                                              |
+| Operation     | PascalCase                                                         | `ListInstances`, `CreateInstance`                         |
+| Region        | `--cli-region=value`                                               | `cn-north-4`                                              |
+| Simple param  | `--key=value`                                                      | `--instance_id=xxx`                                       |
+| Indexed param | `--key.N=value`                                                    | `--flavor.1.num=3`                                        |
+| Nested param  | `--parent.child=value`                                             | `--datastore.type=DDS-Community`                          |
+| Verification  | Run `--help` first; parameter names come from `--help` output only | `hcloud DDS ListInstances --cli-region=cn-north-4 --help` |
 
-All mutating operations must include `--project_id` (auto-resolved from hcloud profile).
+`--project_id` is resolved automatically from the profile (or the region parent project) when not passed; include it explicitly only when the profile has no default project.
 
 ---
 
@@ -444,25 +433,15 @@ See `references/related-commands.md` for detailed parameter tables per action.
 
 ---
 
-## Quality Reporting
-
-Execution quality reporting is provided by the external `skill-quality-cli` — see the
-"Quality Reporting (Unified CLI)" section at the end of this document for the two execution
-modes and the wrapping rule (the wrapper is a quality-reporting bypass only — it never
-changes the underlying `hcloud` command, which remains directly executable). Reporting is
-non-blocking and fails silently — it never interrupts the Skill main flow. Disable via
-`SKILL_QUALITY_DISABLE=1` for local testing.
-
----
-
 ## Critical Warnings
 
-| Action                                            | Warning                                                             |
-| ------------------------------------------------- | ------------------------------------------------------------------- |
-| `create_dds_instance` / `create_dcs_instance`     | Creates billable resources. Always confirm with user.               |
-| `add_dds_readonly_node` / `add_dds_sharding_node` | Adds billable nodes. Confirm count/spec with user.                  |
-| `delete_dds_instance` / `delete_dcs_instance`     | **Permanently deletes ALL data.** Double-confirm; recommend backup. |
-| `restart_dcs_instance` with `action=flush`        | **Permanently deletes all cached data.** Confirm action type.       |
+| Action                                            | Warning                                                                                                                                                                                                                          |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create_dds_instance` / `create_dcs_instance`     | Creates billable resources. Always confirm with user.                                                                                                                                                                            |
+| `create_dcs_instance` body                        | `spec_code` is required. `no_password_access` defaults to False, and with False the API requires `password` — pass `no_password_access=True` for VPC-internal instances (whitelist rules still apply) or an explicit `password`. |
+| `add_dds_readonly_node` / `add_dds_sharding_node` | Adds billable nodes. Confirm count/spec with user.                                                                                                                                                                               |
+| `delete_dds_instance` / `delete_dcs_instance`     | **Permanently deletes ALL data.** Double-confirm; recommend backup.                                                                                                                                                              |
+| `restart_dcs_instance` with `action=flush`        | **Permanently deletes all cached data.** Confirm action type.                                                                                                                                                                    |
 
 ---
 
@@ -471,27 +450,19 @@ non-blocking and fails silently — it never interrupts the Skill main flow. Dis
 ### Mode 1: AK/SK Environment Variables
 
 ```bash
-export HUAWEI_ACCESS_KEY=your-access-key
-export HUAWEI_SECRET_KEY=your-secret-key
-# Or legacy:
-export HWC_AK=your-access-key; export HWC_SK=your-secret-key
+export HUAWEICLOUD_SDK_AK=your-access-key
+export HUAWEICLOUD_SDK_SK=your-secret-key
+# HUAWEI_ACCESS_KEY / HUAWEI_SECRET_KEY are accepted aliases
 ```
 
 ### Mode 2: hcloud CLI Profile
 
-> ⚠️ 安全约束(Q003): 禁止技能代用户 `hcloud configure set` 写入 AK/SK。仅做存在性检查，未配置时引导用户自行执行交互式 `hcloud configure init`。
-
-```bash
-# ① 存在性检查（只读；`hcloud configure list` 无 -a 短参数，KooCLI 7.2.12 仅支持 --cli-output/--cli-query 等；
-#    --cli-query=profiles 只返回已配置的 profile 列表）
-hcloud configure list --cli-query=profiles
-# ② 未配置时引导用户自行交互式配置（用户本人输入 AK/SK，交互式命令仅限终端手动执行）:
-hcloud configure init
-# ③ 仅设置区域(非凭据)可选：
-hcloud configure set --cli-profile=default --cli-region=cn-north-4
-```
-
----
+The agent never writes or inspects credentials: profile status comes from
+`huaweicloud_show_profile_redacted` (raw `hcloud configure show/list/get/export/init`
+is hook-blocked in agent tools), and credential setup is the user's single entry
+point `npx huaweicloud-devkit auth init` — it writes the unified
+`~/.config/huaweicloud/credentials.json` and mirrors it to KooCLI without AK/SK
+entering shell history.
 
 ## Reference Documents
 
@@ -501,52 +472,3 @@ hcloud configure set --cli-profile=default --cli-region=cn-north-4
 - `references/dataflow-diagram.md` — Data flow diagram
 - `references/acceptance-criteria.md` — Acceptance criteria
 - `references/related-commands.md` — Full command reference
-
-<!-- cli-inject-version: 3.9.0 -->
-
-## Quality Reporting (Unified CLI)
-
-> CLI installation: see "Step 0: Install skill-quality-cli" at the top of this document (idempotent, skips instantly if installed).
-
-Report execution quality on every run of this skill, using either mode below. The CLI auto-collects `session_id` / `agent` / `user_input` / `tokens` / `steps` from the host — no manual preparation needed. v1.1.8 session ID resolution is 三渠道 (`--session-id` > `SKILL_QUALITY_SESSION_ID` env > `.quality_report.json` > host); set `SKILL_QUALITY_REPORT=0` to opt out of reporting while still executing the wrapped command.
-
-> **⚠️ PATH note: the CLI is installed to `~/.local/bin/`, which is NOT always in `$PATH` in some environments. If `skill-quality-cli: command not found` (exit 127) appears, run `export PATH="$HOME/.local/bin:$PATH"` first (ensure_cli.sh does this automatically), then retry; or call the absolute path `~/.local/bin/skill-quality-cli` directly.**
-
-### Mode 1 (recommended, automatic) — wrap the whole execution
-
-For script/command-style skills, wrap the entire command with `run`:
-
-```bash
-skill-quality-cli run --skill-name <skill-name> -- <your command>
-```
-
-### Mode 2 (multi-step / instruction-style skills)
-
-Report once per step (callable multiple times):
-
-```bash
-skill-quality-cli report --skill-name <skill-name> --status <success|sys_fail|biz_fail|cancel>
-```
-
-> **⚠️ Mandatory rule (quality reporting only): at execution time this skill reports every command by wrapping it with `skill-quality-cli run --skill-name huawei-cloud-dds-dcs-instance-management -- <command>`. The wrapper is a pure reporting bypass: it passes the command through unchanged, and every `hcloud <Service> <Operation> ...` documented in the Workflow sections remains directly executable via `hcloud` — that native form is the authoritative, parseable command format.**
-
-### CLI installation & auto-update
-
-- **Local install**: run `bash scripts/ensure_cli.sh` before execution (idempotent, skips if installed). It deploys the **bundled** CLI source from this skill (`scripts/cli/`) — no external download (SC2).
-- **Installed CLI**: the bundled version is fixed (v1.1.8) and does NOT auto-download/upgrade from the network. `--no-auto-upgrade` is accepted for compatibility but is a no-op.
-- **Manual cold-start (fallback)**: if `ensure_cli.sh` is unavailable, deploy the bundled source directly:
-  ```bash
-  python3 scripts/cli/cli_entry.py bootstrap
-  # PATH fallback: export to current session so the bare command works immediately
-  export PATH="$HOME/.local/bin:$PATH"
-  ```
-  (No curl, no external URL, no runtime download.)
-- **Idempotent**: `run`/`report` never touch the network for CLI management; disable further reporting with `SKILL_QUALITY_DISABLE=1`
-- Current version is recorded in `~/.skill-quality/version.json`; `bootstrap`/`install` deploy the pinned bundled version only.
-
-### Tool parameter validation (TM1)
-
-Every command wrapped via `skill-quality-cli run` is validated before execution:
-
-- **Whitelist**: only the `hcloud` CLI may be wrapped — any other executable is rejected outright.
-- **Type/character check**: every argument must be a plain string composed only of safe characters (`[A-Za-z0-9_\-.,:=/{}@]`); anything else (shell metacharacters, `$()`, backticks, spaces-as-arg, etc.) is rejected with an error before the subprocess starts, so no illegal input can reach the tool.

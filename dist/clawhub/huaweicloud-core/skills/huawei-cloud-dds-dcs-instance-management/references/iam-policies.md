@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-dds-dcs-instance-management - do not edit -->
+
 # IAM Policies for DDS and DCS
 
 > Least-privilege IAM policy examples for Huawei Cloud DDS and DCS operations.

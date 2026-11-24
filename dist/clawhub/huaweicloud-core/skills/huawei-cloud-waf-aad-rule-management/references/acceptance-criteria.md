@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-waf-aad-rule-management - do not edit -->
+
 # Acceptance Criteria — huawei-cloud-waf-aad-rule-management
 
 Maps the 17 `huawei_*` actions from GitCode issue #474 to acceptance checks.
@@ -38,9 +40,9 @@ Maps the 17 `huawei_*` actions from GitCode issue #474 to acceptance checks.
 
 - [ ] SKILL.md conforms to GitCode Skill registration spec (frontmatter, required sections, ≤ 500 lines)
 - [ ] 17 `huawei_*` actions are all documented and routable to the verified CLI operations above
-- [ ] `hcloud WAF` / `hcloud AAD` dependencies correctly declared (KooCLI 7.2.12)
+- [ ] `hcloud WAF` / `hcloud AAD` dependencies correctly declared (KooCLI 7.2.12; parameter surfaces re-checked identical on 7.3.12)
 - [ ] R3 read-only actions auto-execute; R2/R1 manage actions require preview + confirmation
 - [ ] AAD create/delete limitation declared; console guidance + `ListPackage` diagnostic path provided
 - [ ] Critical Warnings present: CNAME redirect, premium instance, Standard vs Enterprise, rule order, report-mode-first
 - [ ] Both AK/SK env credentials and local hcloud profile authentication documented
-- [ ] `references/iam-policies.md`, `references/cli-installation-guide.md` present; quality CLI (`scripts/ensure_cli.sh` + `skill-quality-cli run`) integrated; no hardcoded credentials
+- [ ] `references/iam-policies.md`, `references/cli-installation-guide.md` present; the OPTIONAL wrapper family ships (`scripts/ensure_cli.sh` availability check + `scripts/cli/cli_entry.py` whitelist wrapper; no reporting module); no hardcoded credentials
