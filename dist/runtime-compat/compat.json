@@ -1,17 +1,17 @@
 {
-  "checkedAt": "2026-11-24T14:10:21.129Z",
-  "devkitVersion": "2.0.0",
+  "checkedAt": "2026-11-25T07:08:52.755Z",
+  "devkitVersion": "1.1.16",
   "requirements": {
-    "node": ">=22.19",
-    "pythonScripts": 13,
-    "shellScripts": 8
+    "node": "^22.19.0 || >=23.4.0",
+    "pythonScripts": 17,
+    "shellScripts": 10
   },
   "registryLastUpdated": "2026-10-25",
   "matrix": [
     {
       "agent": "workbuddy",
       "bundledNode": "22.22.2",
-      "nodeCompat": "ok",
+      "nodeCompat": "insufficient",
       "pythonBundled": null,
       "lastVerified": "2026-10-22",
       "pythonNote": "package ships python scripts on the optional execution track; agent python availability untracked"
@@ -19,7 +19,7 @@
     {
       "agent": "officeace",
       "bundledNode": "22.22.2",
-      "nodeCompat": "ok",
+      "nodeCompat": "insufficient",
       "pythonBundled": null,
       "lastVerified": "2026-10-25",
       "pythonNote": "package ships python scripts on the optional execution track; agent python availability untracked"
@@ -27,7 +27,7 @@
     {
       "agent": "codearts-ide",
       "bundledNode": "22.21.1",
-      "nodeCompat": "ok",
+      "nodeCompat": "insufficient",
       "pythonBundled": null,
       "lastVerified": "2026-10-25",
       "pythonNote": "package ships python scripts on the optional execution track; agent python availability untracked"
@@ -35,17 +35,22 @@
     {
       "agent": "codearts-desktop",
       "bundledNode": "22.23.2",
-      "nodeCompat": "ok",
+      "nodeCompat": "insufficient",
       "pythonBundled": null,
       "lastVerified": "2026-10-25",
       "pythonNote": "package ships python scripts on the optional execution track; agent python availability untracked"
     }
   ],
-  "incompatible": [],
+  "incompatible": [
+    "workbuddy: bundled node 22.22.2 does not satisfy engines.node \"^22.19.0 || >=23.4.0\"",
+    "officeace: bundled node 22.22.2 does not satisfy engines.node \"^22.19.0 || >=23.4.0\"",
+    "codearts-ide: bundled node 22.21.1 does not satisfy engines.node \"^22.19.0 || >=23.4.0\"",
+    "codearts-desktop: bundled node 22.23.2 does not satisfy engines.node \"^22.19.0 || >=23.4.0\""
+  ],
   "warnings": [
-    "workbuddy: package ships 13 python scripts but no bundled python is registered",
-    "officeace: package ships 13 python scripts but no bundled python is registered",
-    "codearts-ide: package ships 13 python scripts but no bundled python is registered",
-    "codearts-desktop: package ships 13 python scripts but no bundled python is registered"
+    "workbuddy: package ships 17 python scripts but no bundled python is registered",
+    "officeace: package ships 17 python scripts but no bundled python is registered",
+    "codearts-ide: package ships 17 python scripts but no bundled python is registered",
+    "codearts-desktop: package ships 17 python scripts but no bundled python is registered"
   ]
 }
