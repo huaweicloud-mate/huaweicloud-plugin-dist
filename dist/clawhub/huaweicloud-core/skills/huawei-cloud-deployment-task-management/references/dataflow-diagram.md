@@ -1,5 +1,3 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-deployment-task-management - do not edit -->
-
 # Data Flow Diagram — huawei-cloud-deployment-task-management
 
 ## 1. Query & Analyze Flow (R3 — automatic execution)
@@ -25,8 +23,8 @@ flowchart LR
     B -->|create app| C[CheckIsDuplicateAppName pre-check]
     C -->|duplicate| C2[Advise another name - FAIL fast]
     C -->|unique| D{huawei_create_clouddeploy_app}
-    B -->|create task| E{CodeArts project + template exist?}
-    E -->|no| E2[Create project / pick template first - FAIL fast]
+    B -->|create task| E{App/project exists?}
+    E -->|no| E2[Create application first - FAIL fast]
     E -->|yes| F{huawei_create_clouddeploy_task}
     B -->|start| G{Tasks running on same hosts?}
     G -->|yes| G2[Advise serializing - parallel conflict trap]

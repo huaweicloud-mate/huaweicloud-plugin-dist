@@ -1,5 +1,3 @@
-<!-- generated from src/packs/obs/skills/huawei-obs - do not edit -->
-
 # OBS Common Pitfalls
 
 基于真实测试暴露的陷阱和避坑方法。
@@ -13,7 +11,7 @@ OBS 使用 **obsutil-style** 子命令，不是 API-style 操作名：
 | `OBS --help`          | `hcloud OBS help`（无 `--`，`help` 是子命令） |
 | `OBS CreateBucket`    | `hcloud OBS mb obs://<bucket>`                |
 | `OBS PutObject`       | `hcloud OBS cp <file> obs://<bucket>/`        |
-| `OBS DeleteBucket`    | `hcloud OBS rm obs://<bucket> -r`             |
+| `OBS DeleteBucket`    | `hcloud OBS rm obs://<bucket> -f`             |
 | `OBS ListBuckets`     | `hcloud OBS ls`                               |
 
 ## 独立凭证配置
@@ -54,11 +52,11 @@ hcloud OBS config -i
 
 ## 静态网站托管
 
-KooCLI OBS 没有 API 风格的 `SetBucketWebsite` 操作；7.3.12+ 提供了 obsutil 风格的 `hcloud OBS website obs://<bucket> -method=put -localfile=<xml>`（XML 文件方式）。配置静态网站托管的三条路径（推荐顺序）：
+KooCLI OBS **不支持** `SetBucketWebsite` 命令。配置静态网站托管需要：
 
-1. **MCP 工具**: `huaweicloud_obs_set_website_config`（插件内置，AWS4 签名处理，action=set/get/delete，实测可用 —— 无需手写 XML）
-2. **KooCLI 7.3.12+**: `hcloud OBS website`（先写 WebsiteConfiguration XML 文件，再 `-method=put -localfile=<xml>`；7.2.x 无此命令）
-3. **REST API / 控制台**: `PUT /?website` 或 OBS 控制台 → 桶 → 静态网站托管 → 开启
+1. **MCP 工具**: `huaweicloud_obs_set_website_config`（插件内置，AWS4 签名处理，action=set/get/delete，实测可用）
+2. **REST API**: `PUT /?website` 到桶的 endpoint
+3. **控制台**: OBS 控制台 → 桶 → 静态网站托管 → 开启
 
 ## Content-Disposition 强制下载陷阱（2022-01-01 后创建的桶）
 
@@ -71,7 +69,7 @@ KooCLI OBS 没有 API 风格的 `SetBucketWebsite` 操作；7.3.12+ 提供了 ob
 
 **避坑方法**：
 
-1. **验证网页行为必须用 GET 直连**（`curl -s -D - -o /dev/null <url>`（Windows 下为 `-o NUL`）或浏览器）——HEAD 和代理层会给出假象
+1. **验证网页行为必须用 GET 直连**（`curl -s -D - -o /dev/null <url>`，Windows 下为 `-o NUL`；或浏览器）——HEAD 和代理层会给出假象
 2. **官方解法**：绑定自定义域名接入 **CDN**，在"CDN 控制台 > 域名管理 > 高级设置 > HTTP header 配置"设置 `Content-Disposition: inline`（参见华为云 CDN 文档《如何在浏览器中在线预览 OBS 中的对象？》）
 3. 跨云对照：阿里云 OSS 同样策略（Bucket 域名访问 HTML 强制下载，绑定自定义域名即可在线预览）
 
@@ -120,6 +118,14 @@ hcloud OBS chattri obs://<bucket>/index.html -acl=public-read
 - 开启后**无法关闭**，只能暂停
 - 删除桶前必须清空所有版本和删除标记
 - 版本存储按对象大小计费
+
+## 安全注意事项
+
+- MUST 默认阻止公网访问
+- MUST 启用 HTTPS-only
+- SHOULD 开启访问日志
+- 预签名 URL 最大 7 天有效期
+- AK/SK 绝对不能写入 Bucket Policy
 
 ## 浏览器直传（BrowserJS SDK）
 
@@ -223,9 +229,9 @@ node -e "fetch('<same-url>', {method:'PUT', headers:{'Origin':'https://<your-app
 
 浏览器直传 OBS 前，桶必须先配置 CORS 规则，否则所有请求都会被预检拦截。
 
-**CLI 与工具双路径（U0 实测裁定）**：KooCLI **7.3.12+**（本插件钉版）已暴露 `cors` 子命令——`hcloud OBS help cors` 正常输出，`hcloud OBS cors obs://<bucket> -method=put -localfile=<xml>` 可用（7.2.x 报 `No such command`；上游 main 曾据 7.2.x 测量断言 CLI 无此命令，实测 7.3.12 已物化）。
+**KooCLI 缺口**：KooCLI 的 OBS 包装层未暴露 obsutil 的 `cors` 子命令——执行 `hcloud OBS cors` 报 `No such command`（`hcloud OBS help` 列表中也无 cors）。
 
-**首选路径：MCP 工具 `huaweicloud_obs_set_cors`（#1003）**——内部 AWS4 签名调 OBS REST API（`PUT/GET/DELETE /?cors`），屏蔽签名细节，无需手写 XML 文件。`action=set` 传 `rules` 数组（`allowedOrigin` / `allowedMethod[]` 必须含 HEAD / `allowedHeader[]` / `maxAgeSeconds`），工具在入参边界就拒绝缺 HEAD 的规则（p01 前置防线）；set/get 成功返回体自带 `verify` 命令（OPTIONS 预检）。7.3.12+ 环境的脚本化场景可用 CLI 命令作替代路径；SDK/控制台仅作降级路径。
+**首选路径：MCP 工具 `huaweicloud_obs_set_cors`（#1003）**——内部 AWS4 签名调 OBS REST API（`PUT/GET/DELETE /?cors`），屏蔽签名细节。`action=set` 传 `rules` 数组（`allowedOrigin` / `allowedMethod[]` 必须含 HEAD / `allowedHeader[]` / `maxAgeSeconds`），工具在入参边界就拒绝缺 HEAD 的规则（p01 前置防线）；set/get 成功返回体自带 `verify` 命令（OPTIONS 预检）。SDK/控制台仅作降级路径。
 
 **降级路径 ①：REST API `PUT /?cors` + CORS XML**
 
@@ -287,11 +293,3 @@ JSON 形态（供 MCP 工具/自研封装消费）：
 ```
 
 配置完成后用 p05 的 curl OPTIONS 预检命令验证：预检应返回 200 且响应头含 `Access-Control-Allow-Origin`。走 `huaweicloud_obs_set_cors` 工具时，set/get 返回体的 `verify` 字段就是这条预检命令（含 `--noproxy '*'`，#1000 的注入代理陷阱同样适用于 OPTIONS 预检）。
-
-## 安全注意事项
-
-- MUST 默认阻止公网访问
-- MUST 启用 HTTPS-only
-- SHOULD 开启访问日志
-- 预签名 URL 最大 7 天有效期
-- AK/SK 绝对不能写入 Bucket Policy

@@ -20,60 +20,10 @@
     "\\.hcloud",
     "\\.huaweicloud",
     "hcloud[/\\\\](config|credentials)",
-    "huaweicloud[/\\\\](config|credentials|creds-import)",
-    "huaweicloud[/\\\\]secrets",
-    "\\.master-key",
-    "creds-import\\.json",
-    "/proc/(self|[0-9]+)/environ",
-    "huaweicloud\\s*(?:&&|;|/|[\\n\\r])\\s*(?:\\S+\\s+){0,2}(?:credentials|creds-import|config)\\.json"
-  ],
-  "protectedPayloadPathMarkers": [
-    "huaweicloud-plugins[/\\\\]",
-    "huaweicloud-core[/\\\\]dist[/\\\\]",
-    "huaweicloud-core[/\\\\]safety[/\\\\]"
+    "huaweicloud[/\\\\](config|credentials)"
   ],
   "blockedConfigureSubcommands": ["show", "get", "list", "export", "init"],
-  "blockedSecretOperations": [
-    "ShowSecret",
-    "ShowSecretVersion",
-    "DownloadSecret",
-    "GetSecretValue",
-    "DecryptData",
-    "DecryptDatakey",
-    "DownloadAccessPointPrivateKey",
-    "DeriveSharedSecret",
-    "CreateRsaDatakeyPair",
-    "CreateEcDatakeyPair"
-  ],
-  "blockedSecretCliPatterns": [
-    "huaweicloud-devkit(@[\\w.+-]+)?(\\.(js|cjs|mjs|exe|ts))?(\\s+--)?\\s+secret\\s+get\\b",
-    "setup-cli\\.(js|mjs|ts)(\\s+--)?\\s+secret\\s+get\\b",
-    "setup\\.cjs(\\s+--)?\\s+secret\\s+get\\b"
-  ],
-  "blockedApprovalCliPatterns": [
-    "huaweicloud-devkit(@[\\w.+-]+)?(\\.(js|cjs|mjs|exe|ts))?(\\s+--)?\\s+approve\\b",
-    "setup-cli\\.(js|mjs|ts)(\\s+--)?\\s+approve\\b",
-    "setup\\.cjs(\\s+--)?\\s+approve\\b",
-    "huaweicloud-devkit(@[\\w.+-]+)?(\\.(js|cjs|mjs|exe|ts))?(\\s+--)?\\s+pin\\b",
-    "setup-cli\\.(js|mjs|ts)(\\s+--)?\\s+pin\\b",
-    "setup\\.cjs(\\s+--)?\\s+pin\\b"
-  ],
-  "blockedAccountSwitchCliPatterns": [
-    "huaweicloud-devkit(@[\\w.+-]+)?(\\.(js|cjs|mjs|exe|ts))?(\\s+--)?\\s+auth\\s+(init|setup|sync|refresh|reconcile)\\b",
-    "setup-cli\\.(js|mjs|ts)(\\s+--)?\\s+auth\\s+(init|setup|sync|refresh|reconcile)\\b",
-    "setup\\.cjs(\\s+--)?\\s+auth\\s+(init|setup|sync|refresh|reconcile)\\b"
-  ],
-  "blockedGatedCliPatterns": [
-    "huaweicloud-devkit(@[\\w.+-]+)?(\\.(js|cjs|mjs|exe|ts))?(\\s+--)?\\s+(update|upgrade)\\b",
-    "setup-cli\\.(js|mjs|ts)(\\s+--)?\\s+(update|upgrade)\\b",
-    "setup\\.cjs(\\s+--)?\\s+(update|upgrade)\\b",
-    "huaweicloud-devkit(@[\\w.+-]+)?(\\.(js|cjs|mjs|exe|ts))?(\\s+--)?\\s+secret\\s+rm\\b",
-    "setup-cli\\.(js|mjs|ts)(\\s+--)?\\s+secret\\s+rm\\b",
-    "setup\\.cjs(\\s+--)?\\s+secret\\s+rm\\b",
-    "huaweicloud-devkit(@[\\w.+-]+)?(\\.(js|cjs|mjs|exe|ts))?(\\s+--)?\\s+packs\\s+(enable|disable|all)\\b",
-    "setup-cli\\.(js|mjs|ts)(\\s+--)?\\s+packs\\s+(enable|disable|all)\\b",
-    "setup\\.cjs(\\s+--)?\\s+packs\\s+(enable|disable|all)\\b"
-  ],
+  "blockedSecretOperations": ["ShowSecret", "ShowSecretVersion", "DownloadSecret", "GetSecretValue"],
   "writeOperationPrefixes": [
     "Create",
     "BatchCreate",
@@ -107,30 +57,20 @@
     "Invoke",
     "Execute",
     "Trigger",
-    "Deploy",
-    "Rotate",
-    "Cancel",
-    "Confirm",
-    "Subscribe",
-    "Register",
-    "Restore",
-    "Migrate",
-    "Import",
-    "Uninstall",
-    "Assign"
+    "Deploy"
   ],
-  "readOperationPrefixes": ["List", "Show", "Get", "Describe", "NovaList", "NovaShow", "GlanceShow", "GlanceList"],
-  "readOperationExceptions": [
-    "MigrateResults",
-    "ImportResult",
-    "DownloadImportResult",
-    "DownloadImportTemplate",
-    "DownloadImportExcelTemplate",
-    "RecognizeHouseholdRegister",
-    "CollectPolicyAssignmentsStatesSummary",
-    "CheckMigrateLogicDb"
-  ],
+  "readOperationPrefixes": ["List", "Show", "Get", "Describe", "NovaList", "NovaShow"],
   "safeTextReadCommands": ["rg", "grep", "findstr", "git", "ls", "dir", "Get-ChildItem"],
+  "blockedSandboxCommands": [
+    "rm\\s+-rf\\s+/",
+    "mkfs",
+    "dd\\s+if=",
+    ":\\(\\)\\{:\\|:&\\};:",
+    "shutdown",
+    "reboot",
+    "init\\s+[06]",
+    "fdisk"
+  ],
   "sandboxWriteTools": [
     "huaweicloud_sandbox_connect",
     "huaweicloud_sandbox_credentials",

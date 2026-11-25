@@ -4,8 +4,6 @@ description: 'Use when creating, deploying, or managing serverless functions on 
 version: 1
 ---
 
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-functiongraph - do not edit -->
-
 # Huawei Cloud FunctionGraph
 
 **STOP - Do not answer from general knowledge.** Follow the procedure below.

@@ -1,5 +1,3 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-apig-instance-management - do not edit -->
-
 # Acceptance Criteria
 
 The huawei-cloud-apig-instance-management skill is accepted when all of the following hold:
@@ -42,7 +40,7 @@ The huawei-cloud-apig-instance-management skill is accepted when all of the foll
       `ListApisBindedToSignatureKeyV2`, `ListApisBindedToAclPolicyV2`,
       `ListApisBindedToRequestThrottlingPolicyV2`
       (throttling uses `RequestThrottlingPolicyV2` naming, NOT `ThrottlingPolicyV2`)
-- [ ] Required parameters present for each operation (verified against `--help`, KooCLI 7.2.12; parameter surfaces re-checked identical on 7.3.12)
+- [ ] Required parameters present for each operation (verified against `--help`, KooCLI 7.2.12)
 - [ ] Every concrete command includes `--cli-region`
 
 ## E. Safety
@@ -60,10 +58,14 @@ The huawei-cloud-apig-instance-management skill is accepted when all of the foll
 - [ ] At least the read-only commands executed against a real authenticated KooCLI and returned valid JSON (or a documented empty result)
 - [ ] Mutating commands validated via `--help` parameter checks (execution requires a live environment + user confirmation)
 
-## G. Wrapper scripts (normalized v2 form)
+## G. Quality reporting (CLI)
 
-- [ ] `scripts/ensure_cli.sh` exists (availability check only; the wrapper is OPTIONAL).
-- [ ] `scripts/cli/cli_entry.py` ships the whitelist wrapper: `ALLOWED_COMMANDS = ("hcloud",)`, charset
-      validation, passthrough stdio — no telemetry, no network, no self-upgrade.
-- [ ] No reporting module ships (the guard asserts its absence); no quality-report E2E is required.
-- [ ] SKILL.md carries the optional-wrapper note and the approval write-path routing note.
+- [ ] `scripts/ensure_cli.sh` exists and is executable (idempotent `skill-quality-cli` installer).
+- [ ] `scripts/cli/cli_entry.py` + `scripts/cli/cli_reporting.py` are bundled (zero-dependency in-skill carrier).
+- [ ] `SKILL.md` contains the "Quality Reporting (Unified CLI)" section with Mode 1 (`run` wrap) / Mode 2 (`report`) and the mandatory
+      `skill-quality-cli run` wrapping rule for hcloud commands.
+- [ ] Every executable `hcloud` command in `SKILL.md` is wrapped with
+      `skill-quality-cli run --skill-name huawei-cloud-apig-instance-management -- ...`
+      (including the async-polling loop and the environment-ID discovery step).
+- [ ] E2E verified: `python3 scripts/cli/cli_entry.py --no-auto-upgrade report --skill-name huawei-cloud-apig-instance-management --status success --json <cfg>` returns `[quality-report] OK trace_id=...`.
+- [ ] No `skill_quality_sdk` remnants in the skill directory (scripts, SKILL.md, references).

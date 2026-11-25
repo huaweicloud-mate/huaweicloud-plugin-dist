@@ -7,15 +7,15 @@
       "type": "query",
       "executor": "cli",
       "command": "hcloud CSMS ListSecrets --cli-region={region} --limit=10",
-      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4); parameter surfaces re-checked identical on 7.3.12. project_id auto-filled from the authenticated profile."
+      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4). project_id auto-filled from the authenticated profile."
     },
     {
       "id": "TC-02",
-      "name": "huawei_describe_csms_secret - describe served from list metadata",
-      "type": "query",
+      "name": "huawei_describe_csms_secret syntax check (live call requires --secret_name)",
+      "type": "syntax",
       "executor": "cli",
-      "command": "hcloud CSMS ListSecrets --cli-region={region} --limit=10",
-      "note": "Read-only R3 query; the list items carry the full Secret metadata incl. rotation config (ShowSecret is hook-blocked in v2 agent tools)."
+      "command": "hcloud CSMS ShowSecret --cli-region={region} --help",
+      "note": "--help syntax check (rc=0). The live form is hcloud CSMS ShowSecret --cli-region={region} --secret_name={secret_name} (SKILL.md Core Commands)."
     },
     {
       "id": "TC-03",
@@ -31,7 +31,7 @@
       "type": "query",
       "executor": "cli",
       "command": "hcloud KMS ListKeys --cli-region={region} --limit=10",
-      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4); parameter surfaces re-checked identical on 7.3.12."
+      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4)."
     },
     {
       "id": "TC-05",
@@ -47,7 +47,7 @@
       "type": "query",
       "executor": "cli",
       "command": "hcloud CTS ListTraces --cli-region={region} --trace_type=system --limit=5",
-      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4); parameter surfaces re-checked identical on 7.3.12."
+      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4)."
     },
     {
       "id": "TC-07",
@@ -55,7 +55,7 @@
       "type": "syntax",
       "executor": "cli",
       "command": "hcloud KMS CreateKey --cli-region={region} --help",
-      "note": "Write op (R2). Live mutation routed through the devkit approval chain (huaweicloud_plan_cli_command then huaweicloud_run_approved_command). --help only."
+      "note": "Write op (R2). Live mutation gated by confirmation policy and framework ALLOW_WRITES + allow_writes.yaml. --help only."
     },
     {
       "id": "TC-08",
@@ -63,7 +63,7 @@
       "type": "syntax",
       "executor": "cli",
       "command": "hcloud CSMS UpdateSecret --cli-region={region} --help",
-      "note": "Write op (R2). Live mutation routed through the devkit approval chain (huaweicloud_plan_cli_command then huaweicloud_run_approved_command). --help only."
+      "note": "Write op (R2). Live mutation gated by confirmation policy and framework ALLOW_WRITES + allow_writes.yaml. --help only."
     },
     {
       "id": "TC-09",
@@ -71,7 +71,7 @@
       "type": "syntax",
       "executor": "cli",
       "command": "hcloud CSMS RotateSecret --cli-region={region} --help",
-      "note": "Manual rotation (R1). Live mutation routed through the devkit approval chain (huaweicloud_plan_cli_command then huaweicloud_run_approved_command). --help only."
+      "note": "Manual rotation (R1). Live mutation gated by confirmation policy and framework ALLOW_WRITES + allow_writes.yaml. --help only."
     },
     {
       "id": "TC-10",
@@ -79,7 +79,7 @@
       "type": "syntax",
       "executor": "cli",
       "command": "hcloud KMS DeleteKey --cli-region={region} --help",
-      "note": "Write op (R1, irreversible). Live deletion routed through the devkit approval chain (huaweicloud_plan_cli_command then huaweicloud_run_approved_command). --help only."
+      "note": "Write op (R1, irreversible). Live deletion gated by confirmation policy and framework ALLOW_WRITES + allow_writes.yaml. --help only."
     }
   ]
 }

@@ -1,5 +1,3 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-smn-dms-message - do not edit -->
-
 # Acceptance Criteria
 
 Checklist for accepting the huawei-cloud-smn-dms-message skill.
@@ -28,7 +26,7 @@ Checklist for accepting the huawei-cloud-smn-dms-message skill.
 
 - [ ] Every command contains `--cli-region`.
 - [ ] Service names are real KooCLI services: `SMN`, `Kafka`, `RabbitMQ`, `RocketMQ`. **No `hcloud DMS`.**
-- [ ] Operations use PascalCase and were verified via `--help` on KooCLI 7.2.12 (parameter surfaces re-checked identical on 7.3.12).
+- [ ] Operations use PascalCase and were verified via `--help` on KooCLI 7.2.12.
 - [ ] DMS actions route by engine (Kafka/RabbitMQ/RocketMQ), never a single "DMS" service.
 - [ ] Required parameters per command match the `--help` output.
 
@@ -43,12 +41,16 @@ Checklist for accepting the huawei-cloud-smn-dms-message skill.
 ## Testing evidence
 
 - [ ] Read-only smoke tests executed against a live account in `cn-north-4` (see references/verification-method.md).
-- [ ] plan-stage dry-runs (huaweicloud_plan_cli_command / `--dryrun`) reviewed for all R2/R1 commands.
+- [ ] `--preview` dry-runs passed for all R2/R1 commands.
 - [ ] Engine routing verified live: `kafka`, `rabbitmq`, `rocketmq` each returned valid API responses.
 
-## Wrapper scripts (normalized v2 form)
+## Quality reporting (CLI)
 
-- [ ] `scripts/ensure_cli.sh` exists (availability check only; the wrapper is OPTIONAL).
-- [ ] `scripts/cli/cli_entry.py` ships the whitelist wrapper: `ALLOWED_COMMANDS = ("hcloud",)`, charset validation, passthrough stdio — no telemetry, no network, no self-upgrade.
-- [ ] No reporting module ships; `scripts/smn_dms_skill.py` (main's script executor) and `scripts/install_cli.sh` deliberately do NOT ship — the scripts-shape guard pins the family pair.
-- [ ] SKILL.md carries the optional-wrapper note, the approval write-path routing note, and the engine-routing Action Dispatch section (no script executor).
+- [ ] `scripts/ensure_cli.sh` + `scripts/install_cli.sh` exist and are executable (idempotent, pinned version + SHA256 whitelist verification, fail-closed; no auto-upgrade).
+- [ ] `SKILL.md` contains the "Quality Reporting (Unified CLI)" section with Mode 1 (`run` wrap) / Mode 2 (`report`) and the mandatory `skill-quality-cli run` wrapping rule for hcloud commands.
+- [ ] `SKILL.md` contains the "Action Dispatch (Script Executor)" section listing all 15 `huawei_*` actions as `python3 scripts/smn_dms_skill.py <action> ...` script-executor commands.
+- [ ] Every executable `hcloud` command in `SKILL.md` is wrapped with `skill-quality-cli run --skill-name huawei-cloud-smn-dms-message -- ...`.
+- [ ] `scripts/smn_dms_skill.py` hard-binds reporting: success → `success`; missing required argument / invalid engine → `biz_fail` (U02); hcloud non-zero exit / timeout / network error → `sys_fail` (B01).
+- [ ] Reporting is fire-and-forget: never blocks, never changes business output or the exit code; skips when `SKILL_TRACE_ID` is set (wrapper already reported) or `SKILL_QUALITY_DISABLE=1`.
+- [ ] E2E verified: `skill-quality-cli report --skill-name huawei-cloud-smn-dms-message --status success --json <cfg>` returns `[quality-report] OK trace_id=...`.
+- [ ] No `skill_quality_sdk` remnants in the skill directory (scripts, SKILL.md, references).

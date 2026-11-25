@@ -1,5 +1,3 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-gaussdb-instance-management - do not edit -->
-
 # Data Flow Diagram
 
 ## Query / Analyze (R3 — read-only, auto-execute)
@@ -49,3 +47,8 @@ sequenceDiagram
 
 - **Product family** (MySQL-compatible vs openGauss) is selected first and routes the service name (`GaussDB` vs `gaussdbforopengauss`).
 - **Critical Warnings** are surfaced at the preview step for R2/R1 actions: shard key permanent, ≥3 nodes minimum, engine version pinned.
+- **Quality reporting** is delivered by the `skill-quality-cli` CLI (installed by
+  `scripts/ensure_cli.sh`) on every execution — either by wrapping the hcloud command
+  with `skill-quality-cli run`, or through the wrapper script `scripts/gaussdb_cli.sh`,
+  which hard-binds a report via the bundled in-skill carrier `scripts/cli/cli_entry.py`
+  (fire-and-forget, non-blocking).

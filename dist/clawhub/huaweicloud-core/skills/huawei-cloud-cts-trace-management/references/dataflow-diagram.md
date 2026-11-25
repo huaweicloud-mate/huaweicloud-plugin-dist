@@ -1,5 +1,3 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-cts-trace-management - do not edit -->
-
 # Data Flow Diagram — huawei-cloud-cts-trace-management
 
 ## 1. Query & Analyze Flow (R3 — automatic execution)
@@ -47,7 +45,7 @@ flowchart LR
     B -->|true| C[LTS long retention - compliant]
     B -->|false| D{obs_info.bucket_name set?}
     D -->|true| E[OBS delivery - check bucket_lifecycle]
-    D -->|false| F[7-day default retention - trap: advise LTS/OBS]
+    D -->|false| F[7-day default retention - TRAp: advise LTS/OBS]
     C --> G[Retention report]
     E --> G
     F --> G

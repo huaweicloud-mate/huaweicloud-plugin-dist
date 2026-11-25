@@ -1,5 +1,3 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-dew-key-management - do not edit -->
-
 # Data Flow Diagram — huawei-cloud-dew-key-management
 
 ## 1. Query flow (R3 — read-only, auto execute)
@@ -28,7 +26,7 @@ flowchart LR
     end
     subgraph Runtime side
         C[Application runtime]
-        D["{{resolve:csms:secret-id:SecretString:key}}"]
+        D[{{resolve:csms:secret-id:SecretString:key}}]
         E[(CSMS secret store)]
     end
     A -.->|never| E
@@ -40,7 +38,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A[ListSecrets] --> B[Rotation fields from ListSecrets items<br/>(auto_rotation, rotation_period, rotation_func_urn)]
+    A[ListSecrets] --> B[For each secret: ShowSecret]
     B --> C{auto_rotation?}
     C -->|enabled| D[Check rotation_period + rotation_func_urn]
     C -->|disabled| E[Flag: rotation not enabled]

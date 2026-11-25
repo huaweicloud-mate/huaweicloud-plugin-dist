@@ -1,5 +1,3 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-dds-dcs-instance-management - do not edit -->
-
 # Data Flow Diagram
 
 ```mermaid
@@ -41,7 +39,7 @@ graph TD
     DDS_Result & DCS_Result --> Formatter[Result Formatter]
     Formatter --> User
 
-    subgraph Authentication
+    subleg Authentication
         AK_SK[AK/SK Env Vars] --> hcloud_Profile[hcloud CLI Profile]
         AK_SK --> SDK_Creds[SDK BasicCredentials]
         hcloud_Profile --> DDS_CLI
@@ -60,7 +58,7 @@ graph TD
 
 ## Authentication Flow
 
-- AK/SK discovered from `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK` (or `HUAWEI_ACCESS_KEY`/`HUAWEI_SECRET_KEY`) env vars
+- AK/SK discovered from `HUAWEI_ACCESS_KEY`/`HUAWEI_SECRET_KEY` or `HWC_AK`/`HWC_SK` env vars
 - CLI operations use hcloud profile or env-based authentication
 - SDK operations construct `BasicCredentials` from the same env vars
 - No hardcoded credentials in any script or configuration file

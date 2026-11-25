@@ -1,24 +1,22 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-smn-dms-message - do not edit -->
-
 # Engine & Operation Reference — SMN + DMS
 
 Complete mapping of the 15 `huawei_*` actions to real KooCLI commands. Parameter names are
-verbatim from `hcloud <Service> <Operation> --help` (KooCLI 7.2.12, verified 2026-09-07; parameter surfaces re-checked identical on 7.3.12, 2026-10-22).
+verbatim from `hcloud <Service> <Operation> --help` (KooCLI 7.2.12, verified 2026-09-07).
 
 ## SMN (service `SMN`, uppercase)
 
-| Action                                         | Operation                                        | Risk | Key params                                                         |
-| ---------------------------------------------- | ------------------------------------------------ | ---- | ------------------------------------------------------------------ |
-| `huawei_list_smn_topics`                       | `ListTopics`                                     | R3   | `--limit`, `--offset`, `--name`, `--fuzzy_name`                    |
-| `huawei_list_smn_subscriptions`                | `ListSubscriptions`                              | R3   | `--protocol`, `--status`, `--endpoint`, `--limit`, `--offset`      |
-| `huawei_list_smn_message_templates`            | `ListMessageTemplates`                           | R3   | `--message_template_name`, `--protocol`, `--limit`, `--offset`     |
-| `huawei_analyze_smn_subscription_confirmation` | `ListSubscriptions` / `ListSubscriptionsByTopic` | R3   | `--protocol`, `--status`; single topic: `--topic_urn` (ByTopic op) |
-| `huawei_create_smn_topic`                      | `CreateTopic`                                    | R2   | `--name`, `--display_name` (required, may be empty)                |
-| `huawei_add_smn_subscription`                  | `AddSubscription`                                | R2   | `--topic_urn`, `--protocol`, `--endpoint`                          |
-| `huawei_create_smn_message_template`           | `CreateMessageTemplate`                          | R2   | `--message_template_name`, `--content`                             |
-| `huawei_publish_smn_message`                   | `PublishMessage`                                 | R2   | `--topic_urn`, `--message` (or structure/template)                 |
-| `huawei_delete_smn_topic`                      | `DeleteTopic`                                    | R1   | `--topic_urn`                                                      |
-| `huawei_confirm_smn_subscription`              | `ConfirmSubscription`                            | R1   | `--token`, `--topic_urn`, `--endpoint`                             |
+| Action                                         | Operation                      | Risk | Key params                                                     |
+| ---------------------------------------------- | ------------------------------ | ---- | -------------------------------------------------------------- |
+| `huawei_list_smn_topics`                       | `ListTopics`                   | R3   | `--limit`, `--offset`, `--name`, `--fuzzy_name`                |
+| `huawei_list_smn_subscriptions`                | `ListSubscriptions`            | R3   | `--protocol`, `--status`, `--endpoint`, `--limit`, `--offset`  |
+| `huawei_list_smn_message_templates`            | `ListMessageTemplates`         | R3   | `--message_template_name`, `--protocol`, `--limit`, `--offset` |
+| `huawei_analyze_smn_subscription_confirmation` | `ListSubscriptions` (analysis) | R3   | `--protocol`, `--status`, `--topic_urn`                        |
+| `huawei_create_smn_topic`                      | `CreateTopic`                  | R2   | `--name`, `--display_name` (required, may be empty)            |
+| `huawei_add_smn_subscription`                  | `AddSubscription`              | R2   | `--topic_urn`, `--protocol`, `--endpoint`                      |
+| `huawei_create_smn_message_template`           | `CreateMessageTemplate`        | R2   | `--message_template_name`, `--content`                         |
+| `huawei_publish_smn_message`                   | `PublishMessage`               | R2   | `--topic_urn`, `--message` (or structure/template)             |
+| `huawei_delete_smn_topic`                      | `DeleteTopic`                  | R1   | `--topic_urn`                                                  |
+| `huawei_confirm_smn_subscription`              | `ConfirmSubscription`          | R1   | `--token`, `--topic_urn`, `--endpoint`                         |
 
 ### SMN subscription `status` codes
 

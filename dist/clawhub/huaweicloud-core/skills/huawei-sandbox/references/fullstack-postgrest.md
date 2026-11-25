@@ -1,5 +1,3 @@
-<!-- generated from src/packs/sandbox/skills/huawei-sandbox - do not edit -->
-
 # Full-Stack on the Sandbox: PostgreSQL 16 + PostgREST + Nginx
 
 A REST API over a real database, fully inside the sandbox: PostgREST generates
@@ -94,7 +92,7 @@ su - postgres -c "/usr/pgsql-16/bin/pg_ctl -D /workspace/pgsql/16/data -l /works
 
 ## Step 2: PostgREST (static build) + schema
 
-PostgREST 16.5 `linux-static-aarch64` runs on HCE out of the box (musl
+PostgREST 16.4 `linux-static-aarch64` runs on HCE out of the box (musl
 static). **Dynamic Ubuntu builds do NOT work** — HCE glibc 2.34 is older than
 Ubuntu 22.04's 2.35 and the binaries fail on load.
 
@@ -182,10 +180,10 @@ devbridge host -p <port> -e 720
 ```
 
 Verify end-to-end through the public URL: `GET /` (page, 200), `GET /api/todos`
-(data, 200), `POST /api/todos` (401 — the anon role has SELECT only; if a write
-API is wanted, grant INSERT/UPDATE on the specific table, never to anon broadly).
-After that targeted grant the same `POST /api/todos` returns **201** (measured
-2026-10: POST 401 → targeted `GRANT INSERT` on the table → POST 201).
+(data, 200), `POST /api/todos` (**401 by default** — the anon role has SELECT
+only). To enable writes on one table, `GRANT INSERT ON api.todos TO api_user`
+(never a broad grant to anon); after that targeted grant the same POST returns
+**201**.
 
 ## Field notes (2026-10 retest): 5 measured traps
 
@@ -254,41 +252,37 @@ curl -s -X POST -H "Content-Type: application/json" -d @/tmp/payload.json http:/
 
 A sandbox reboot rolls the **系统盘 (system disk)** back to the image state —
 everything installed under `/`, `/usr`, `/etc`, `$HOME` is lost. Only
-`/workspace` (the data disk) survives. This section covers only the
-**full-stack-specific** recovery; the generic reboot doctrine (Step 0 reinstall,
-credential re-injection, watchdog re-attach) is already in `SKILL.md` →
-_Sandbox filesystem persistence: what survives a reboot (#999)_ — not repeated
-here. The checklist below assumes PG data was initialized on
-`/workspace/pgsql/16/data` per Step 1 above.
+`/workspace` (the data disk) survives. Below is the measured recovery
+checklist, assuming PG data was initialized on `/workspace/pgsql/16/data` per
+Step 1 above.
 
 ### Lost on reboot (系统盘 — must rebuild)
 
-| Component          | Location               | Recovery action                                                                                 |
-| ------------------ | ---------------------- | ----------------------------------------------------------------------------------------------- |
-| PostgreSQL 16 RPMs | `/usr/pgsql-16/`       | Re-run the Step 1 `rpm -ivh --nodeps` block                                                     |
-| Soname shims       | `/usr/lib64/lib*.so.*` | Re-run the Step 1 symlink + `ldconfig` block                                                    |
-| `postgres` user    | `/etc/passwd` entry    | `useradd -r -m postgres` then `chown postgres:postgres /workspace/pgsql/16/data`                |
-| PostgREST binary   | `/opt/postgrest/`      | Re-download + sha256-verify + extract (Step 2), then relaunch (Step 2)                          |
-| pgrst.conf         | `/opt/postgrest/`      | Re-upload via `huaweicloud_sandbox_upload_file`                                                 |
-| nginx config       | `/etc/nginx/conf.d/`   | Re-apply Step 3's single-origin block (`deploy_nginx` templates carry no `/api/` reverse proxy) |
+| Component              | Location                  | Recovery action                                                                  |
+| ---------------------- | ------------------------- | -------------------------------------------------------------------------------- |
+| PostgreSQL 16 RPMs     | `/usr/pgsql-16/`          | Re-run the Step 1 `rpm -ivh --nodeps` block                                      |
+| Soname shims           | `/usr/lib64/lib*.so.*`    | Re-run the Step 1 symlink + `ldconfig` block                                     |
+| `postgres` user        | `/etc/passwd` entry       | `useradd -r -m postgres` then `chown postgres:postgres /workspace/pgsql/16/data` |
+| PostgREST binary       | `/opt/postgrest/`         | Re-download + sha256-verify + extract (Step 2)                                   |
+| pgrst.conf             | `/opt/postgrest/`         | Re-upload via `huaweicloud_sandbox_upload_file`                                  |
+| nginx config           | `/etc/nginx/conf.d/`      | Re-create via `huaweicloud_sandbox_deploy_nginx`                                 |
+| DevBridge 0.2.x binary | `~/.huawei/bin/` (系统盘) | Re-install to `/workspace/.local/bin` (see #999)                                 |
+| DevBridge tunnel       | in-memory                 | Re-run `huaweicloud_sandbox_expose_tunnel`                                       |
+| `/tmp` credentials     | `/tmp/hw_creds.sh` etc.   | Re-run `huaweicloud_sandbox_credentials`                                         |
 
 ### Survives reboot (/workspace — no rebuild needed)
 
-| Component         | Location                   | Notes                                        |
-| ----------------- | -------------------------- | -------------------------------------------- |
-| Frontend pages    | `/workspace/<repo>/`       | Uploaded project persists                    |
-| PG data directory | `/workspace/pgsql/16/data` | Schema, roles, tables, seed data ALL survive |
+| Component              | Location                   | Notes                                        |
+| ---------------------- | -------------------------- | -------------------------------------------- |
+| Frontend pages         | `/workspace/<repo>/`       | Uploaded project persists                    |
+| PG data directory      | `/workspace/pgsql/16/data` | Schema, roles, tables, seed data ALL survive |
+| DevBridge 0.2.x binary | `/workspace/.local/bin/`   | If installed per #999 guidance               |
 
 Because PG data lives on `/workspace`, a restart does **NOT** require rebuilding
 the schema (`schema.sql`) or re-seeding data — `initdb` is also unnecessary.
-Only the PostgreSQL-side install (the server RPMs, the soname shims, and the
-`postgres` user) must be rebuilt; then `pg_ctl -D /workspace/pgsql/16/data
-start` resumes the surviving cluster immediately. The application layer is lost
-with the system disk too: re-download + sha256-verify the PostgREST binary and
-re-upload `pgrst.conf` (Step 2), re-apply the Step 3 single-origin nginx
-config (never `huaweicloud_sandbox_deploy_nginx` — its SPA/proxy/static
-templates carry no `/api/` reverse proxy, so the restored site would be
-SPA-only), then relaunch PostgREST and reload nginx.
+Only the PG server RPMs and the `postgres` user need rebuilding; then
+`pg_ctl -D /workspace/pgsql/16/data start` resumes the surviving cluster
+immediately.
 
 ### Write-permission GRANT rollback trap (POST 401 → GRANT → 201)
 
