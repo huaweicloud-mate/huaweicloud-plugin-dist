@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-dew-key-management - do not edit -->
+
 # KMS Usage Guide
 
 KMS (Key Management Service) manages customer master keys (CMK). All management actions
@@ -45,7 +47,7 @@ hcloud KMS EnableKeyRotation --cli-region=cn-north-4 --key_id={key_id}
 hcloud KMS DeleteKey --cli-region=cn-north-4 --key_id={key_id} --pending_days=7
 ```
 
-- Schedules deletion after `--pending_days` (7~1096; default 7).
+- Schedules deletion after `--pending_days` (required, 7~1096 — choose 7 for the shortest recovery-friendly window).
 - Cancellable during the window: `hcloud KMS CancelKeyDeletion --cli-region=cn-north-4 --key_id={id}`
 - **After the window passes, the key is permanently deleted and data encrypted with it is
   UNRECOVERABLE.** Always show this warning and require explicit confirmation (R1).
@@ -55,16 +57,16 @@ hcloud KMS DeleteKey --cli-region=cn-north-4 --key_id={key_id} --pending_days=7
 
 ## Encrypt / decrypt policy
 
-| Operation                                   | Policy                                                                    |
-| ------------------------------------------- | ------------------------------------------------------------------------- |
-| `hcloud KMS ListKeys`                       | **ALLOWED** (metadata only)                                               |
-| `hcloud KMS ListKeyDetail`                  | **ALLOWED** (metadata only)                                               |
-| `hcloud KMS ShowKeyRotationStatus`          | **ALLOWED** (metadata only)                                               |
-| `hcloud KMS CreateKey`                      | ALLOWED (R2 preview + confirm)                                            |
-| `hcloud KMS DeleteKey` (schedule deletion)  | ALLOWED (R1 preview + confirm, irreversible warning)                      |
-| `hcloud KMS EncryptData`                    | ALLOWED for approved automation only — prefer offline SDK encryption      |
-| `hcloud KMS DecryptData`                    | **BLOCKED** — use runtime injection / SDK in application runtime          |
-| `hcloud KMS CreateDatakey` (plaintext side) | **BLOCKED** in agent context — envelope encryption in application runtime |
+| Operation                                   | Policy                                                                                                                                                                                 |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hcloud KMS ListKeys`                       | **ALLOWED** (metadata only)                                                                                                                                                            |
+| `hcloud KMS ListKeyDetail`                  | **ALLOWED** (metadata only)                                                                                                                                                            |
+| `hcloud KMS ShowKeyRotationStatus`          | **ALLOWED** (metadata only)                                                                                                                                                            |
+| `hcloud KMS CreateKey`                      | ALLOWED (R2 preview + confirm)                                                                                                                                                         |
+| `hcloud KMS DeleteKey` (schedule deletion)  | ALLOWED (R1 preview + confirm, irreversible warning)                                                                                                                                   |
+| `hcloud KMS EncryptData` / `EncryptDatakey` | NOT gated (classifies unknown_read) — takes `--plain_text` on argv (the plaintext enters shell history / `ps aux`); never run in agent context; encrypt inside the application runtime |
+| `hcloud KMS DecryptData` / `DecryptDatakey` | **HOOK-BLOCKED** (v2 secret-read vocabulary) — decrypt inside the application runtime, never in agent context                                                                          |
+| `hcloud KMS CreateDatakey`                  | Approval-gated write whose response carries the plaintext datakey — doctrine: do NOT run; use `CreateDatakeyWithoutPlaintext` (ciphertext only) or envelope encryption                 |
 
 Endpoint (verified): `POST /v1.0/{project_id}/kms/list-keys`,
 `POST /v1.0/{project_id}/kms/create-key`,

@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-waf-aad-rule-management - do not edit -->
+
 # Verification Method — huawei-cloud-waf-aad-rule-management
 
 How to verify this skill end-to-end. All read-only checks can run automatically (R3); write
@@ -6,10 +8,10 @@ operations require preview + user confirmation (R2/R1).
 ## 1. Environment checks
 
 ```bash
-skill-quality-cli run --skill-name huawei-cloud-waf-aad-rule-management -- hcloud version                       # >= 7.2.12
-skill-quality-cli run --skill-name huawei-cloud-waf-aad-rule-management -- hcloud WAF --help | head -30         # WAF service + operations list
-skill-quality-cli run --skill-name huawei-cloud-waf-aad-rule-management -- hcloud AAD --help | head -30         # AAD service + operations list
-skill-quality-cli run --skill-name huawei-cloud-waf-aad-rule-management -- hcloud configure list                # authenticated profile
+hcloud version                       # >= 7.2.12 (7.3.12 parameter surfaces verified identical)
+hcloud WAF --help | head -30         # WAF service + operations list
+hcloud AAD --help | head -30         # AAD service + operations list
+# profile status via huaweicloud_show_profile_redacted (raw configure list is hook-blocked)
 ```
 
 ## 2. Read-only verification (R3 — runs automatically)
@@ -29,12 +31,12 @@ skill-quality-cli run --skill-name huawei-cloud-waf-aad-rule-management -- hclou
 | List protected IPs        | `hcloud AAD ListProtectedIp --cli-region=<region>`                                                   | JSON list of EIPs                                          |
 | List unbound IPs          | `hcloud AAD ListUnboundProtectedIp --cli-region=<region> --package_id=<package_id>`                  | JSON list of unbound EIPs                                  |
 
-**Negative check (mandatory):** the following commands MUST fail — they prove the skill does not
+**Negative check (mandatory):** the following commands must print `[USE_ERROR] Operation ... is not supported.` (note: the exit code is 0 — the error is output-only) — they prove the skill does not
 fabricate AAD instance management:
 
 ```bash
-skill-quality-cli run --skill-name huawei-cloud-waf-aad-rule-management -- hcloud AAD CreateInstance --help    # [USE_ERROR] Operation CreateInstance is not supported.
-skill-quality-cli run --skill-name huawei-cloud-waf-aad-rule-management -- hcloud AAD DeleteInstance --help    # [USE_ERROR] Operation DeleteInstance is not supported.
+hcloud AAD CreateInstance --help    # [USE_ERROR] Operation CreateInstance is not supported.
+hcloud AAD DeleteInstance --help    # [USE_ERROR] Operation DeleteInstance is not supported.
 ```
 
 ## 3. Diagnostic verification (R3)
@@ -57,9 +59,9 @@ skill-quality-cli run --skill-name huawei-cloud-waf-aad-rule-management -- hclou
 
 1. **Create custom rule** — run `BatchCreateCustomRule` with `--action.category=log`
    (report mode), then `ListCustomRules` to confirm the rule appears with the expected action.
-2. **Create IP blacklist** — `BatchCreateWhiteblackipRule --white=0 --addr=<test-ip>`, confirm via
+2. **Create IP blacklist** — `BatchCreateWhiteblackipRule --white=2 --addr=<test-ip>`, confirm via
    `ListWhiteblackipRule`.
-3. **Create CC rule** — `BatchCreateCcRule --mode=0 --action.category=log ...`, confirm via
+3. **Create CC rule** — `BatchCreateCcRule --mode=1 --action.category=log ...`, confirm via
    `ListCcRules`.
 4. **Create geo rule** — `BatchCreateGeoIpRule --geoip=<code> --white=2` (log), confirm via
    `ListGeoipRule`.

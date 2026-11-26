@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-apig-instance-management - do not edit -->
+
 # IAM Policies for APIG Skill (Least Privilege)
 
 This skill operates on Huawei Cloud APIG dedicated instances. The IAM policies

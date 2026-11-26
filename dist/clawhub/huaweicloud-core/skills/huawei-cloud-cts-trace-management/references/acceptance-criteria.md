@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-cts-trace-management - do not edit -->
+
 # Acceptance Criteria — huawei-cloud-cts-trace-management
 
 ## 1. Registration & Structure
@@ -5,13 +7,15 @@
 - [ ] `SKILL.md` exists under `skills/{category}/{subcategory}/huawei-cloud-cts-trace-management/` with:
   - [ ] YAML frontmatter: `name: huawei-cloud-cts-trace-management` matches directory name; `description` contains feature
         summary and trigger words; `tags` ≤ 5; **no** `version` field
-  - [ ] Required sections: Overview, Prerequisites, Workflow, Core Commands, Parameter Confirmation,
-        Quality Reporting, Reference Documents, KooCLI Command Format Standard
+  - [ ] Required sections: Step 0 (optional wrapper), Overview, Critical Warnings, Prerequisites, Workflow,
+        Core Commands, Parameter Confirmation, Error Code Convention, KooCLI Command Format Standard,
+        Reference Documents
   - [ ] SKILL.md ≤ 500 lines; total files ≤ 30; total size ≤ 40 MB; all file extensions allowed
 - [ ] `references/iam-policies.md`, `references/cli-installation-guide.md`,
       `references/verification-method.md`, `references/dataflow-diagram.md`,
       `references/acceptance-criteria.md` exist and use kebab-case filenames
-- [ ] `scripts/ensure_cli.sh` exists (idempotent `skill-quality-cli` installer)
+- [ ] `templates/test-defaults.json` and `templates/test-vars.json` present (CLI test-case definitions)
+- [ ] `scripts/ensure_cli.sh` exists (availability check only; the wrapper is OPTIONAL)
 - [ ] No hardcoded credentials; no literal AK/SK or `hcloud configure set` with real values
 
 ## 2. Action Coverage (10 huawei_* actions)
@@ -39,7 +43,7 @@
 ## 4. CLI Correctness
 
 - [ ] Every `hcloud CTS <Operation>` uses PascalCase operation names and includes `--cli-region`
-- [ ] All required parameters from `--help` (KooCLI 7.2.12) are present in command examples
+- [ ] All required parameters from `--help` (KooCLI 7.2.12; parameter surfaces re-checked identical on 7.3.12) are present in command examples
 - [ ] Parameter names match `--help` output verbatim (e.g. `--obs_info.bucket_name`,
       `--operations.1.service_type`, indexed `--key.N=value` syntax)
 - [ ] `ListTraceResources` uses `--domain_id` (not `--project_id`)
@@ -51,12 +55,10 @@
 - [ ] Write actions require explicit user confirmation
 - [ ] Security audit (gitleaks/markdownlint/spec check) passes with no ERROR/CRITICAL findings
 
-## 6. Quality Reporting (CLI)
+## 6. Wrapper scripts (normalized v2 form)
 
-- [ ] `scripts/ensure_cli.sh` exists and is executable (idempotent `skill-quality-cli` installer)
-- [ ] `SKILL.md` contains the "Step 0: Install skill-quality-cli" block and the
-      "Quality Reporting (Unified CLI)" section with Mode 1 (`run` wrap) / Mode 2 (`report`)
-- [ ] Every executable `hcloud` command in `SKILL.md` is wrapped with
-      `skill-quality-cli run --skill-name huawei-cloud-cts-trace-management -- ...`
-      (mandatory rule — no bare `hcloud` calls)
-- [ ] No vendored SDK reporting remnants in the skill directory (scripts, SKILL.md, references)
+- [ ] `scripts/ensure_cli.sh` exists (availability check only; the wrapper is OPTIONAL).
+- [ ] `scripts/cli/cli_entry.py` ships the whitelist wrapper: `ALLOWED_COMMANDS = ("hcloud",)`, charset
+      validation, passthrough stdio — no telemetry, no network, no self-upgrade.
+- [ ] No reporting module ships (the guard asserts its absence); no quality-report E2E is required.
+- [ ] SKILL.md carries the optional-wrapper note and the approval write-path routing note.

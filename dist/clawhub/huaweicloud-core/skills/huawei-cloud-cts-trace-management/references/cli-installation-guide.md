@@ -1,72 +1,105 @@
-# hcloud (KooCLI) Installation & Authentication Guide
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-cts-trace-management - do not edit -->
 
-This skill executes Huawei Cloud operations through the **hcloud (KooCLI)** command-line tool.
+# KooCLI Installation & Authentication Guide
 
-## Install hcloud
+## 1. Install KooCLI (hcloud)
 
-See the official quick start: https://support.huaweicloud.com/qs-hcli/hcli_02_003.html
+Huawei Cloud CLI (KooCLI) is a single binary. See the official quickstart:
+https://support.huaweicloud.com/qs-hcli/hcli_02_003.html
 
 ```bash
-# Download and install (Linux x86_64 shown; see docs for ARM/macOS variants)
-curl -sSL https://cn-north-4-hcli.obs.cn-north-4.myhuaweicloud.com/hcli_latest_linux_amd64.tar.gz -o hcli.tar.gz
-tar -xzf hcli.tar.gz
-./hcloud_install.sh
+# Linux x86_64
+curl -sSL https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/hcloud_install.sh -o hcloud_install.sh
+bash hcloud_install.sh
 
-# Verify
-hcloud version
+# Or via Python package manager
+pip3 install huaweicloudcli
 ```
 
-For other OS/architectures, follow https://support.huaweicloud.com/qs-hcli/hcli_02_003.html.
+Verify:
 
-## Update KooCLI
+```bash
+hcloud version
+hcloud CTS --help        # should list Available Operations for CTS
+```
+
+Keep KooCLI updated so CTS operation/parameter metadata stays current:
 
 ```bash
 hcloud update -y
 ```
 
-## Authentication
+## 2. Authentication
 
-### Option 1: hcloud profile (AK/SK)
+Two supported ways (AK/SK never hardcoded in this skill):
 
-Use the hcloud configuration command to persist your access key and secret key into the default
-profile, along with the default region and project:
+### Option A — Local profile (recommended for interactive agents)
 
-```bash
-hcloud configure set --cli-profile=default --cli-region=cn-north-4 \
-  --cli-access-key=<your-access-key-id> --cli-secret-key=<your-access-key-secret>
-hcloud configure list   # verify
-```
+The agent must NOT write credentials on the user's behalf — never execute a credential-writing
+command (e.g. `configure set`/`configure init`) for them, and never inspect the raw profile:
+raw `hcloud configure show/list/get/export` is hook-blocked in agent tools.
 
-> Never commit the `configure set` command with real keys into code or documents —
-> it is a local machine operation.
+Check whether a profile already exists with `huaweicloud_show_profile_redacted` (the devkit's
+redacted status tool):
 
-### Option 2: Environment variables (auto-detected)
+- If a profile exists, use it directly (status via the redacted tool; the agent never sees secrets).
+- If no profile exists, tell the user to run `npx huaweicloud-devkit auth init` — the single
+  credential entry point, which mirrors to KooCLI without AK/SK entering shell history.
 
-hcloud automatically reads credentials from:
+### Option B — Environment variables (recommended for CI/agent runtimes)
 
-- `HUAWEICLOUD_SDK_AK` / `HUAWEICLOUD_SDK_SK`, or
-- `HUAWEI_ACCESS_KEY` / `HUAWEI_SECRET_KEY` (with optional `HUAWEI_SECURITY_TOKEN`)
+KooCLI reads the following environment variables (among others):
 
-```bash
-export HUAWEICLOUD_SDK_AK={YOUR_ACCESS_KEY}
-export HUAWEICLOUD_SDK_SK={YOUR_SECRET_KEY}
-```
+| Variable                                           | Meaning                                         |
+| -------------------------------------------------- | ----------------------------------------------- |
+| `HUAWEICLOUD_SDK_AK` / `HUAWEI_ACCESS_KEY`         | Access Key ID                                   |
+| `HUAWEICLOUD_SDK_SK` / `HUAWEI_SECRET_KEY`         | Secret Access Key                               |
+| `HUAWEICLOUD_SDK_PROJECT_ID` / `HUAWEI_PROJECT_ID` | Project ID (optional; KooCLI can resolve it)    |
+| `HUAWEICLOUD_SDK_SECURITY_TOKEN`                   | Security token (only for temporary credentials) |
 
-### Option 3: SSO / other modes
-
-Refer to `hcloud configure --help` for additional modes (e.g. SSO login).
-
-## Region & Project
-
-- Most CTS APIs are scoped to a region and project. Pass `--cli-region={region}` explicitly.
-- If `--project_id` is omitted, KooCLI uses `cli-project-id` from the profile or the parent
-  project of the region in the authentication information.
-- `ListTraceResources` requires `--domain_id` (account ID) instead of `--project_id`.
-
-## Verification
+Example:
 
 ```bash
-hcloud CTS ListTrackers --cli-region=cn-north-4 --project_id={project_id}
+export HUAWEICLOUD_SDK_AK=your-access-key
+export HUAWEICLOUD_SDK_SK=your-secret-key
+export HUAWEICLOUD_SDK_REGION=cn-north-4
 ```
 
-A successful JSON response means CLI + credentials are functional.
+### Security rules
+
+- Never print, persist, or hardcode AK/SK — read them from the environment or the local profile only.
+- Never write AK/SK with `configure set` from inside a skill document or script; the agent checks profile status only via `huaweicloud_show_profile_redacted`.
+- Use the most restrictive IAM identity that still allows the needed CTS operations (least privilege, see `references/iam-policies.md`).
+
+## 3. Region and project
+
+Most CTS APIs are region/project scoped. Always pass `--cli-region` (e.g. `cn-north-4`). If
+`--project_id` is not supplied, KooCLI fills it from the profile (or the region's parent project).
+`ListTraceResources` is the exception — it requires `--domain_id` (account ID) instead of
+`--project_id`.
+
+## 4. Troubleshooting
+
+| Symptom                         | Fix                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------- |
+| `hcloud CTS --help` fails       | Update KooCLI: `hcloud update -y`                                               |
+| `Missing required parameter(s)` | Check `hcloud CTS <Op> --help` for required params and include them             |
+| `Authentication failed` / 401   | User re-runs `npx huaweicloud-devkit auth init`, or refresh AK/SK env vars      |
+| `No such operation`             | Operation names change across API versions — enumerate with `hcloud CTS --help` |
+
+## 5. skill-quality-cli (OPTIONAL local wrapper)
+
+The wrapper is OPTIONAL — when absent, this skill's hcloud commands run bare with identical
+semantics. The normalized v2 wrapper performs NO telemetry, NO network access, and NO
+self-upgrade; it only wraps whitelisted `hcloud` commands.
+
+```bash
+bash scripts/ensure_cli.sh   # availability CHECK only (no install, no PATH persistence)
+skill-quality-cli version    # verify it works, if installed
+```
+
+- Manual local deployment (offline): copy `scripts/cli/cli_entry.py` to
+  `~/.local/bin/skill-quality-cli.d/` and create `~/.local/bin/skill-quality-cli` as a
+  one-line wrapper executing `python3 ~/.local/bin/skill-quality-cli.d/cli_entry.py "$@"`.
+- There is nothing to disable: the wrapper reports nothing and contacts nothing.
+- If the wrapper is absent, run the inner `hcloud` command from the examples directly.

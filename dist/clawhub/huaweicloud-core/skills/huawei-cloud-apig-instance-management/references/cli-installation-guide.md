@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-apig-instance-management - do not edit -->
+
 # KooCLI Installation & Authentication Guide
 
 ## 1. Install KooCLI (hcloud)
@@ -7,7 +9,7 @@ https://support.huaweicloud.com/qs-hcli/hcli_02_003.html
 
 ```bash
 # Linux x86_64
-curl -sSL https://cn-north-4-hww-cloud-download.obs.cn-north-4.myhuaweicloud.com/cli/hcloud_install.sh -o hcloud_install.sh
+curl -sSL https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/hcloud_install.sh -o hcloud_install.sh
 bash hcloud_install.sh
 
 # Or via Python package manager
@@ -34,20 +36,15 @@ Two supported ways (AK/SK never hardcoded in this skill):
 ### Option A — Local profile (recommended for interactive agents)
 
 The agent must NOT write credentials on the user's behalf — never execute a credential-writing
-command (e.g. `configure set`/`configure init`) for them.
+command (e.g. `configure set`/`configure init`) for them, and never inspect the raw profile:
+raw `hcloud configure show/list/get/export` is hook-blocked in agent tools.
 
-Check whether a profile already exists:
+Check whether a profile already exists with `huaweicloud_show_profile_redacted` (the devkit's
+redacted status tool):
 
-```bash
-hcloud configure list
-```
-
-- If the output shows an existing profile, use it directly (the agent reads it via the CLI, never prints it).
-- If no profile exists, prompt the user to authenticate themselves (interactive, user-run):
-
-```bash
-hcloud configure init
-```
+- If a profile exists, use it directly (status via the redacted tool; the agent never sees secrets).
+- If no profile exists, tell the user to run `npx huaweicloud-devkit auth init` — the single
+  credential entry point, which mirrors to KooCLI without AK/SK entering shell history.
 
 ### Option B — Environment variables (recommended for CI/agent runtimes)
 
@@ -71,7 +68,7 @@ export HUAWEICLOUD_SDK_REGION=cn-north-4
 ### Security rules
 
 - Never print, persist, or hardcode AK/SK — read them from the environment or the local profile only.
-- Never write AK/SK with `configure set` from inside a skill document or script; the agent only checks `hcloud configure list`.
+- Never write AK/SK with `configure set` from inside a skill document or script; the agent checks profile status only via `huaweicloud_show_profile_redacted`.
 - Use the most restrictive IAM identity that still allows the needed APIG operations (least privilege, see `references/iam-policies.md`).
 
 ## 3. Region and project
@@ -87,23 +84,22 @@ project of the region from the authentication information, then the profile's
 | ------------------------------- | -------------------------------------------------------------------------------- |
 | `hcloud APIG --help` fails      | Update KooCLI: `hcloud update -y`                                                |
 | `Missing required parameter(s)` | Check `hcloud APIG <Op> --help` for required params and include them             |
-| `Authentication failed` / 401   | Re-run `hcloud configure` or refresh AK/SK env vars                              |
+| `Authentication failed` / 401   | User re-runs `npx huaweicloud-devkit auth init`, or refresh AK/SK env vars       |
 | `No such operation`             | Operation names change across API versions — enumerate with `hcloud APIG --help` |
 
-## 5. skill-quality-cli (quality telemetry)
+## 5. skill-quality-cli (OPTIONAL local wrapper)
 
-Quality telemetry is collected automatically via `skill-quality-cli`:
+The wrapper is OPTIONAL — when absent, this skill's hcloud commands run bare with identical
+semantics. The normalized v2 wrapper performs NO telemetry, NO network access, and NO
+self-upgrade; it only wraps whitelisted `hcloud` commands.
 
 ```bash
-bash scripts/ensure_cli.sh   # idempotent: installs only if absent (no auto-upgrade)
-export PATH="$HOME/.local/bin:$PATH"
-skill-quality-cli version    # verify it works
+bash scripts/ensure_cli.sh   # availability CHECK only (no install, no PATH persistence)
+skill-quality-cli version    # verify it works, if installed
 ```
 
-- `ensure_cli.sh` deploys the bundled `scripts/cli/` source locally — **no runtime download**,
-  no network dependency beyond the business calls themselves (supply-chain safe), pinned to the
-  bundled CLI version (1.1.8).
-- Upgrade manually: `skill-quality-cli upgrade` (no auto-upgrade).
-- Disable telemetry: `export SKILL_QUALITY_REPORT=0`.
-- If the local deploy fails, the skill degrades silently (business commands still run);
-  re-run `ensure_cli.sh` once back online.
+- Manual local deployment (offline): copy `scripts/cli/cli_entry.py` to
+  `~/.local/bin/skill-quality-cli.d/` and create `~/.local/bin/skill-quality-cli` as a
+  one-line wrapper executing `python3 ~/.local/bin/skill-quality-cli.d/cli_entry.py "$@"`.
+- There is nothing to disable: the wrapper reports nothing and contacts nothing.
+- If the wrapper is absent, run the inner `hcloud` command from the examples directly.

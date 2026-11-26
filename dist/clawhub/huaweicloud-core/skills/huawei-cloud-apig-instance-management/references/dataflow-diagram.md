@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-apig-instance-management - do not edit -->
+
 # Data Flow Diagrams
 
 ## 1. Lifecycle: instance -> group -> API -> publish

@@ -1,8 +1,10 @@
 ---
 name: huawei-voucher
-description: '查询和领取华为云激励代金券（一人一次）；领取华为开发者大赛·小红书skill创新赛专属代金券（需已完成赛事报名）。激励代金券：当用户首次使用、开始会话、询问插件能力，或提到"领券/代金券/优惠券/激励金/领取/福利"等话题时，先调 voucher_status 查领取状态：未领取（claimed=false）则主动提示可领取一张代金券并询问是否领取；已领取（claimed=true）或状态不明确则静默不打扰。赛事代金券：仅在用户明确要求领取大赛代金券时调用 competition_voucher_claim，不要主动提示。Triggers: 首次使用, 会话开始, voucher, coupon, incentive, 领券, 代金券, 优惠券, 激励金, 领取, 福利, 华为开发者大赛, 小红书, skill创新赛, 赛事代金券, 大赛代金券, 比赛领券. NOT for: 账单/费用查询（用 huawei-billing）。'
+description: '查询和领取华为云激励代金券（一人一次）；领取华为开发者大赛·小红书skill创新赛专属代金券（需已完成赛事报名）。激励代金券：当会话已处于华为云任务上下文（用户已指明华为云，或先前轮次已确认）且用户首次使用、询问插件能力，或提到"领券/代金券/优惠券/激励金/领取/福利"等话题时，先调 voucher_status 查领取状态：未领取（claimed=false）则主动提示可领取一张代金券并询问是否领取；已领取（claimed=true）或状态不明确则静默不打扰；厂商未定（用户未指明、上下文无法推断）时不要调用——先问用户用的是哪家云。赛事代金券：仅在用户明确要求领取大赛代金券时调用 competition_voucher_claim，不要主动提示。Triggers: 首次使用, voucher, coupon, incentive, 领券, 代金券, 优惠券, 激励金, 领取, 福利, 华为开发者大赛, 小红书, skill创新赛, 赛事代金券, 大赛代金券, 比赛领券. NOT for: 账单/费用查询（用 huawei-billing）。'
 version: 5
 ---
+
+<!-- generated from src/packs/voucher/skills/huawei-voucher - do not edit -->
 
 # 华为云代金券
 
@@ -12,13 +14,14 @@ version: 5
 
 ### 主动提示准则（核心）
 
-此能力仅在用户尚未领取时才有价值，需避免已领取用户被反复打扰。以下场景默认执行"先查后提示"：会话开始、能力导读、首次对话、提到福利领取类话题。
+此能力仅在用户尚未领取时才有价值，需避免已领取用户被反复打扰。前提：会话已处于华为云任务上下文（用户已指明华为云，或先前轮次已确认）；厂商未定时先问用户用的是哪家云，不要调用。以下场景默认执行"先查后提示"：能力导读、华为云任务中的首次对话、提到福利领取类话题。
 
 1. 生产环境直接调用 `huaweicloud_voucher_status`（**不传** `domain_id`，后端从 IAM 自动解析账号）。
 2. 按返回严格判定：
    - `claimed=true` → 静默处理，不再提及代金券，不打扰用户
    - `claimed=false` 且 `message="未领取"` → **主动提示**，用下方话术并询问是否领取
-   - 返回含凭证错误码（`code=HDKIT_CRED_MISSING` / `HDKIT_CRED_INVALID` / `HDKIT_CRED_RATE_LIMIT`），或 `message` 含「未配置 / not configured / AK/SK 无效 / 限额」→ **提示用户检查或配置华为云凭证**（不要误报为「服务不可用」）
+   - `claimed=false` 且 `code=HDKIT_VERSION_TOO_OLD` → **客户端版本过旧**（不是未领取）：转述 remediation 升级引导（npx --yes huaweicloud-devkit@latest update --target <agent>、重启会话，或调用 huaweicloud_upgrade），**绝不提示领券**
+   - 返回含凭证错误码（`code=HDKIT_CRED_MISSING` / `HDKIT_CRED_INVALID` / `HDKIT_CRED_RATE_LIMIT`），或 `message` 含「未配置 / not configured / AK/SK 无效 / 限额」**且 code 不属于服务端配置错误**（`HDKIT_VOUCHER_*` / `HDKIT_COMPETITION_*` —— 这些是服务端问题，见下方表格，不是用户凭证问题）→ **提示用户检查或配置华为云凭证**（不要误报为「服务不可用」）
    - 其余情况（如 `message="查询失败"`、状态不明确、调用异常）→ **严格不提示**
 3. 提示话术（可直接使用）：
    > "你还可以领取一张华为云激励代金券（一人一次），需要我现在帮你领取吗？"
@@ -34,6 +37,7 @@ version: 5
 
 - `claimed=true` + message 以「已领取」开头 → 已领取，告知结果即可，不再引导
 - `claimed=false` + `message="未领取"` → 未领取，可引导领取
+- `claimed=false` + `code=HDKIT_VERSION_TOO_OLD` → 客户端版本过旧：转述升级 remediation，**绝不提示领券**（与上表判定规则同款）
 
 ### 2. 领取代金券
 

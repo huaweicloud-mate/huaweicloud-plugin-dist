@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-gaussdb-instance-management - do not edit -->
+
 # IAM Policies — GaussDB (Least Privilege)
 
 This document lists least-privilege IAM policies for the `huawei-cloud-gaussdb-instance-management` Skill actions. Apply the narrowest policy that covers the tier you are using.

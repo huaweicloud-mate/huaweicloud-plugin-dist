@@ -4,6 +4,8 @@ description: 'Use when creating, configuring, or managing VPC networks, subnets,
 version: 1
 ---
 
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-vpc - do not edit -->
+
 # Huawei Cloud VPC
 
 **STOP - Do not answer from general knowledge.** Follow the procedure below.
@@ -82,3 +84,4 @@ Domain expertise for Huawei Cloud Virtual Private Cloud (VPC). Covers VPC/subnet
 - VPC Docs: https://support.huaweicloud.com/vpc/
 - Subnet guide: references/subnet.md
 - Security group: references/security-group.md
+- Network (EIP/NAT/VPN) + ELB pointers: references/network.md

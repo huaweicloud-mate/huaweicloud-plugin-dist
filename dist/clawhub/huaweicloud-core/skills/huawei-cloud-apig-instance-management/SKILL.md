@@ -1,39 +1,20 @@
 ---
 name: huawei-cloud-apig-instance-management
-description: >
-  Manage Huawei Cloud APIG (API Gateway, dedicated instances) via hcloud CLI:
-  instance lifecycle (create/list/delete), API groups, API create/update/delete,
-  publish/offline, request throttling policies, signature keys, access control
-  (ACL) policies, and public ingress EIP binding, plus read-only diagnosis of
-  public access (eip_address vs sl_domain), the instance -> group -> API ->
-  publish chain, and policy effectiveness. Delete operations require explicit
-  user confirmation; instance creation is a 5-15 minute async operation that
-  must be polled until status == Running.
-  Triggers include: APIG, API gateway, API 分组, API 管理, 流控策略,
-  throttling, 签名密钥, signature key, 访问控制, ACL 策略, access control,
-  publish API, 发布 API, 下线 API, 实例管理, 公网访问, ingress EIP,
-  策略生效诊断, API 网关排障.
+description: 'Manage Huawei Cloud APIG (API Gateway, dedicated instances) via hcloud CLI: instance lifecycle (create/list/delete), API groups, API create/update/delete, publish/offline, request throttling policies, signature keys, access control (ACL) policies, and public ingress EIP binding, plus read-only diagnosis of public access (eip_address vs sl_domain), the instance -> group -> API -> publish chain, and policy effectiveness. Delete operations require explicit user confirmation; instance creation is a 5-15 minute async operation that must be polled until status == Running. Triggers include: APIG, API gateway, API 分组, API 管理, 流控策略, throttling, 签名密钥, signature key, 访问控制, ACL 策略, access control, publish API, 发布 API, 下线 API, 实例管理, 公网访问, ingress EIP, 策略生效诊断, API 网关排障.'
 tags: [huawei-cloud, apig, api-gateway, throttling, api-management]
 ---
+
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-apig-instance-management - do not edit -->
 
 # Huawei Cloud APIG API Gateway Management
 
 <!-- cli-install-version: 3.9.0 -->
 
-## Step 0: Install skill-quality-cli (idempotent, skip if already installed)
+## Step 0: Optional command wrapper (skip freely)
 
-The CLI installs into `~/.local/bin/`, which is **not always in `$PATH`** (bare `skill-quality-cli` may
-exit 127). Export it first, then run the installer (it also persists the PATH export into `~/.bashrc` / `~/.profile`):
+> **The wrapper is OPTIONAL.** When `skill-quality-cli` is installed, the wrapped examples in this skill run as written; when it is absent, run the inner `hcloud` command bare — identical semantics (the devkit's safety layer classifies both forms the same way). Check availability with `bash scripts/ensure_cli.sh` (existence check only; no install, no PATH persistence, no network).
 
-```bash
-> **⚠️ Mandatory: every `hcloud` command in this skill MUST be wrapped with `skill-quality-cli run --skill-name huawei-cloud-apig-instance-management -- ` — bare `hcloud` calls are strictly forbidden.**
-
-export PATH="$HOME/.local/bin:$PATH"
-bash scripts/ensure_cli.sh
-```
-
-> The script installs the bundled `scripts/cli/` sources to `~/.local/bin/` when `skill-quality-cli` is not found (offline, no external download),
-> re-exports PATH into `~/.bashrc` / `~/.profile`; it never blocks. If still not found, call the absolute path: `~/.local/bin/skill-quality-cli`.
+**Write-path routing**: `hcloud` write operations in this skill go through the devkit's approval chain — present the planned command with `huaweicloud_plan_cli_command`, then execute with `huaweicloud_run_approved_command` (raw Bash writes are hook-blocked). Read operations may run bare or wrapped.
 
 ## Overview
 
@@ -61,7 +42,7 @@ Requests for these operations must be declined explicitly.
 All commands use the operation names exactly as enumerated by the KooCLI APIG help output (e.g. throttling policies use the
 `RequestThrottlingPolicyV2` naming, **not** `ThrottlingPolicyV2`).
 
-**Dependency**: Quality telemetry is collected automatically via `skill-quality-cli` (installed by `scripts/ensure_cli.sh` if absent).
+**Dependency**: none beyond `hcloud` — the optional `skill-quality-cli` wrapper is a local convenience only (no telemetry, no network).
 
 ## Critical Warnings
 
@@ -90,9 +71,7 @@ All commands use the operation names exactly as enumerated by the KooCLI APIG he
 4. **IAM permissions** — see `references/iam-policies.md` for least-privilege policies
 5. Always discover parameters with `hcloud APIG <Operation> --help` before executing an operation you are not sure about.
 
-- **`skill-quality-cli`** — ensured by `bash scripts/ensure_cli.sh` (idempotent, skips if present)
-  - Upgrade: run `skill-quality-cli upgrade` manually (no auto-upgrade)
-  - Disable telemetry report: set `SKILL_QUALITY_REPORT=0`
+- **`skill-quality-cli`** — OPTIONAL; `bash scripts/ensure_cli.sh` only checks availability (bare `hcloud` is equivalent). The normalized wrapper has no upgrade subcommand; the shipped `scripts/cli/cli_entry.py` is the current version (re-copy it to refresh a manual deployment).
 
 ## Workflow
 
@@ -116,14 +95,11 @@ Command naming: operation names are taken verbatim from the KooCLI APIG help enu
 Service name `APIG` is shown in the CLI help (the KooCLI metadata directory is
 lowercase `apig`; both forms are accepted).
 
-> **Command format & execution rule.** Each command below is shown in its
-> canonical bare `hcloud APIG <Operation> ...` form first — this is the syntax
-> used for parameter discovery (`--help`) and the form read by skill evaluation
-> tooling — immediately followed by the equivalent `skill-quality-cli run`
-> wrapped form used at execution time. **Every hcloud command executed by this
-> skill MUST be wrapped with `skill-quality-cli run`** (mandatory rule — see
-> Step 0 and the Prerequisites `skill-quality-cli` entry) — the wrapper adds no
-> arguments and only changes the reporting behaviour.
+> **Command format.** Each command below is shown in its canonical bare
+> `hcloud APIG <Operation> ...` form — this is the syntax used for parameter
+> discovery (`--help`) and for execution. When the OPTIONAL
+> `skill-quality-cli` wrapper is installed, the equivalent wrapped form
+> works identically (see Step 0); when it is absent, run the bare form.
 
 ### Query — Instances
 
@@ -410,19 +386,19 @@ hcloud APIG CreateApiV2 --cli-region={region} --instance_id={instance_id} --grou
 skill-quality-cli run --skill-name huawei-cloud-apig-instance-management -- hcloud APIG CreateApiV2 --cli-region={region} --instance_id={instance_id} --group_id={group_id} --type={type} --name={name} --req_protocol={req_protocol} --req_method={req_method} --req_uri={req_uri} --auth_type={auth_type} --backend_type={backend_type}
 ```
 
-| Parameter                                                                         | Required | Description                                                                                                                                                                                                                                                                                                                                                                                                           |
-| --------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--instance_id`                                                                   | Yes      | Gateway ID                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `--group_id`                                                                      | Yes      | API group ID                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `--type`                                                                          | Yes      | API type, e.g. `1` (public)                                                                                                                                                                                                                                                                                                                                                                                           |
-| `--name`                                                                          | Yes      | API name — `[a-zA-Z0-9_]+` only, NO hyphens                                                                                                                                                                                                                                                                                                                                                                           |
-| `--req_protocol`                                                                  | Yes      | `HTTPS` / `HTTP` / `BOTH`                                                                                                                                                                                                                                                                                                                                                                                             |
-| `--req_method`                                                                    | Yes      | `GET` / `POST` / `PUT` / `DELETE` / `PATCH` / `HEAD` / `OPTIONS` / `ANY`                                                                                                                                                                                                                                                                                                                                              |
-| `--req_uri`                                                                       | Yes      | Request URI, e.g. `/demo`                                                                                                                                                                                                                                                                                                                                                                                             |
-| `--auth_type`                                                                     | Yes      | `IAM` / `APP` / `NONE`                                                                                                                                                                                                                                                                                                                                                                                                |
-| `--backend_type`                                                                  | Yes      | `HTTP` / `MOCK` / `FUNCTION` / `VPC_CHANNEL`. **Known limitation (KooCLI 7.2.12, verified):** creating an HTTP-backend API via `CreateApiV2` fails with `APIG.2011 invalid req_protocol` for every reasonable parameter combination, while `MOCK`/`FUNCTION` backends succeed. If an HTTP backend is required, use the APIG console, or create the API with a `MOCK`/`FUNCTION` backend and switch it in the console. |
-| `--backend_api.req_uri` / `--backend_api.req_method` / `--backend_api.url_domain` | No       | Backend routing when `backend_type=HTTP`                                                                                                                                                                                                                                                                                                                                                                              |
-| `--cors`                                                                          | No       | Set `true` when CORS preflight is required                                                                                                                                                                                                                                                                                                                                                                            |
+| Parameter                                                                         | Required | Description                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--instance_id`                                                                   | Yes      | Gateway ID                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `--group_id`                                                                      | Yes      | API group ID                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `--type`                                                                          | Yes      | API type, e.g. `1` (public)                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `--name`                                                                          | Yes      | API name — `[a-zA-Z0-9_]+` only, NO hyphens                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `--req_protocol`                                                                  | Yes      | `HTTPS` / `HTTP` / `BOTH`                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `--req_method`                                                                    | Yes      | `GET` / `POST` / `PUT` / `DELETE` / `PATCH` / `HEAD` / `OPTIONS` / `ANY`                                                                                                                                                                                                                                                                                                                                                                                  |
+| `--req_uri`                                                                       | Yes      | Request URI, e.g. `/demo`                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `--auth_type`                                                                     | Yes      | `IAM` / `APP` / `NONE`                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `--backend_type`                                                                  | Yes      | `HTTP` / `MOCK` / `FUNCTION` / `VPC_CHANNEL`. **Known limitation (KooCLI 7.2.12, verified; unverified whether 7.3.12 fixes it):** creating an HTTP-backend API via `CreateApiV2` fails with `APIG.2011 invalid req_protocol` for every reasonable parameter combination, while `MOCK`/`FUNCTION` backends succeed. If an HTTP backend is required, use the APIG console, or create the API with a `MOCK`/`FUNCTION` backend and switch it in the console. |
+| `--backend_api.req_uri` / `--backend_api.req_method` / `--backend_api.url_domain` | No       | Backend routing when `backend_type=HTTP`                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `--cors`                                                                          | No       | Set `true` when CORS preflight is required                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ### Manage — Update API
 
@@ -619,7 +595,7 @@ skill-quality-cli run --skill-name huawei-cloud-apig-instance-management -- hclo
 ## Parameter Confirmation
 
 - Every `huawei_*` command must be checked against `hcloud APIG <Operation> --help`
-  before execution; parameter names in this skill were verified against KooCLI 7.2.12 output.
+  before execution; parameter names in this skill were verified against KooCLI 7.2.12 output; parameter surfaces re-checked identical on 7.3.12.
 - Required vs optional: `--cli-region` is always passed (agent fills it). Project ID (`--project_id`) is resolved automatically from the profile or region parent project.
 - Mutating actions (Manage R2 / Delete R1) require previewing the full command and
   obtaining user confirmation before execution; Delete R1 additionally requires an

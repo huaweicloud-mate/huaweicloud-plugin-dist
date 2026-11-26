@@ -1,68 +1,84 @@
-# CLI Installation Guide
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-dds-dcs-instance-management - do not edit -->
 
-## Installing hcloud CLI
+# KooCLI Installation & Authentication Guide
 
-### Linux (x86_64 / ARM64)
+## 1. Install KooCLI (hcloud)
 
-```bash
-curl -O https://cn-south-1-cloud-res-model-sdk.obs.cn-south-1.myhuaweicloud.com/hcloud/hcloud.tar.gz
-tar -xzf hcloud.tar.gz
-chmod +x hcloud
-sudo mv hcloud /usr/local/bin/
-hcloud version
-```
-
-### macOS
+Huawei Cloud CLI (KooCLI) is a single binary. See the official quickstart:
+https://support.huaweicloud.com/qs-hcli/hcli_02_003.html
 
 ```bash
-curl -O https://cn-south-1-cloud-res-model-sdk.obs.cn-south-1.myhuaweicloud.com/hcloud/hcloud.tar.gz
-tar -xzf hcloud.tar.gz
-chmod +x hcloud
-sudo mv hcloud /usr/local/bin/
-hcloud version
+# Linux x86_64
+curl -sSL https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/hcloud_install.sh -o hcloud_install.sh
+bash hcloud_install.sh
+
+# Or via Python package manager
+pip3 install huaweicloudcli
 ```
 
-### Windows
+Verify:
 
-Download from: https://cn-south-1-cloud-res-model-sdk.obs.cn-south-1.myhuaweicloud.com/hcloud/hcloud.tar.gz
+```bash
+hcloud version
+hcloud DDS --help        # should list Available Operations for DDS
+hcloud DCS --help        # should list Available Operations for DCS
+```
 
-Extract and add `hcloud.exe` to your PATH.
-
-## Upgrading hcloud CLI
+Keep KooCLI updated so DDS/DCS operation/parameter metadata stays current:
 
 ```bash
 hcloud update -y
 ```
 
-## Authentication Setup
+## 2. Authentication
 
-### Method 1: Detect/Configure AK/SK Profile
+Two supported ways (AK/SK never hardcoded in this skill):
 
-> ⚠️ 安全约束(Q003): 技能/脚本禁止代用户通过 `configure set` 写入 AK/SK 凭据。本 skill 仅做**存在性检查**；若未配置，引导用户自行执行交互式 `hcloud configure init`。
+### Option A — Local profile (recommended for interactive agents)
+
+The agent must NOT write credentials on the user's behalf — never execute a credential-writing
+command (e.g. `configure set`/`configure init`) for them, and never inspect the raw profile:
+raw `hcloud configure show/list/get/export/init` is hook-blocked in agent tools.
+
+Check whether a profile already exists with `huaweicloud_show_profile_redacted` (the devkit's
+redacted status tool):
+
+- If a profile exists, use it directly (status via the redacted tool; the agent never sees secrets).
+- If no profile exists, tell the user to run `npx huaweicloud-devkit auth init` — the single
+  credential entry point, which mirrors to KooCLI without AK/SK entering shell history.
+
+### Option B — Environment variables (recommended for CI/agent runtimes)
+
+KooCLI reads the following environment variables (among others):
+
+| Variable                                           | Meaning                                         |
+| -------------------------------------------------- | ----------------------------------------------- |
+| `HUAWEICLOUD_SDK_AK` / `HUAWEI_ACCESS_KEY`         | Access Key ID                                   |
+| `HUAWEICLOUD_SDK_SK` / `HUAWEI_SECRET_KEY`         | Secret Access Key                               |
+| `HUAWEICLOUD_SDK_PROJECT_ID` / `HUAWEI_PROJECT_ID` | Project ID (optional; KooCLI can resolve it)    |
+| `HUAWEICLOUD_SDK_SECURITY_TOKEN`                   | Security token (only for temporary credentials) |
+
+Example:
 
 ```bash
-# ① 存在性检查（只读，不写入任何凭据；`hcloud configure list` 无 `-a` 短参数，
-#    KooCLI 7.2.12 参数为 --cli-output/--cli-query 等，已本机验证）
-hcloud configure list                                # 查看当前 profile 是否已有配置
-hcloud configure list --cli-query=profiles           # 可选：只返回已配置的 profile 数组
-hcloud configure show --cli-profile=default 2>/dev/null || echo "default profile not configured"
-
-# ② 未配置时引导用户自行交互式配置（由用户本人输入 AK/SK, 不落盘到技能侧，交互式仅终端手动执行）:
-hcloud configure init
-
-# ③ 仅当仅需切换区域时可设置区域(非凭据)：
-hcloud configure set --cli-profile=default --cli-region=cn-north-4
+export HUAWEICLOUD_SDK_AK=your-access-key
+export HUAWEICLOUD_SDK_SK=your-secret-key
+export HUAWEICLOUD_SDK_REGION=cn-north-4
 ```
 
-### Method 2: Environment Variables
+### Security rules
 
-```bash
-export HUAWEI_ACCESS_KEY=your-access-key
-export HUAWEI_SECRET_KEY=your-secret-key
-export HUAWEI_REGION=cn-north-4
-```
+- Never print, persist, or hardcode AK/SK — read them from the environment or the local profile only.
+- Never write AK/SK with `configure set` from inside a skill document or script; the agent checks profile status only via `huaweicloud_show_profile_redacted`.
+- Use the most restrictive IAM identity that still allows the needed DDS/DCS operations (least privilege, see `references/iam-policies.md`).
 
-## Verifying Authentication
+## 3. Region and project
+
+DDS and DCS are regional services. Always pass `--cli-region` (e.g. `cn-north-4`). If
+`--project_id` is not supplied, KooCLI fills it from the profile (or the region's parent
+project).
+
+## 4. Verifying authentication
 
 ```bash
 # List DDS instances (read-only check)
@@ -72,10 +88,27 @@ hcloud DDS ListInstances --cli-region=cn-north-4
 hcloud DCS ListInstances --cli-region=cn-north-4
 ```
 
-## Python SDK Dependencies
+## 5. Python SDK dependencies
 
 For operations not supported by hcloud CLI, install SDK packages:
 
 ```bash
 pip install huaweicloudsdkdcs huaweicloudsdkdds
 ```
+
+## 6. skill-quality-cli (OPTIONAL local wrapper)
+
+The wrapper is OPTIONAL — when absent, this skill's hcloud commands run bare with identical
+semantics. The normalized v2 wrapper performs NO telemetry, NO network access, and NO
+self-upgrade; it only wraps whitelisted `hcloud` commands.
+
+```bash
+bash scripts/ensure_cli.sh   # availability CHECK only (no install, no PATH persistence)
+skill-quality-cli version    # verify it works, if installed
+```
+
+- Manual local deployment (offline): copy `scripts/cli/cli_entry.py` to
+  `~/.local/bin/skill-quality-cli.d/` and create `~/.local/bin/skill-quality-cli` as a
+  one-line wrapper executing `python3 ~/.local/bin/skill-quality-cli.d/cli_entry.py "$@"`.
+- There is nothing to disable: the wrapper reports nothing and contacts nothing.
+- If the wrapper is absent, run the inner `hcloud` command from the examples directly.

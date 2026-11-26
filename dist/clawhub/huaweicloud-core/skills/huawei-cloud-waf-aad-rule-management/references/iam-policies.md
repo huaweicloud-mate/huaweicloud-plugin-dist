@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-waf-aad-rule-management - do not edit -->
+
 # IAM Policies for huawei-cloud-waf-aad-rule-management
 
 Least-privilege IAM permissions for the WAF / AAD skill. Split read-only (R3) from write (R2/R1)

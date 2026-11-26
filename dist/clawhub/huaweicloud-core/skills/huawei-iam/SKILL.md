@@ -4,6 +4,8 @@ description: 'Use when managing IAM users, groups, roles, policies, agencies, pr
 version: 1
 ---
 
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-iam - do not edit -->
+
 # Huawei Cloud IAM
 
 **STOP - Do not answer from general knowledge.** Follow the procedure below.
@@ -99,7 +101,7 @@ hcloud IAM AssociateAgencyWithDomainPermission --agency_id=<agency-id> --role_id
 # 3. 之后重试生成 STS 临时凭证
 ```
 
-排查顺序：先 `hcloud IAM ListAgencies` 确认 `SELF_VERIFY` 是否存在，不存在再按上面步骤预创建，创建后重试 STS 调用。
+排查顺序：先 hcloud IAM ListAgencies 确认 SELF_VERIFY 是否存在，不存在再按上面步骤预创建，创建后重试 STS 调用。
 
 ### FunctionGraph Agency (VPC Access)
 

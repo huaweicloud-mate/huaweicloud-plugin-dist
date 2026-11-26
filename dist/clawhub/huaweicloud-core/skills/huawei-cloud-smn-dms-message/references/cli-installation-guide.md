@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-smn-dms-message - do not edit -->
+
 # KooCLI Installation & Authentication Guide
 
 This skill runs entirely through the Huawei Cloud KooCLI (`hcloud`). Install it once, then
@@ -7,28 +9,30 @@ authenticate either with a local profile (recommended) or with AK/SK environment
 
 ```bash
 # Chinese mainland default mirror
-curl -O https://cn-north-4-hcli.obs.cn-north-4.myhuaweicloud.com/hcli_install.sh && bash hcli_install.sh
+curl -sSL https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/hcloud_install.sh -o hcloud_install.sh && bash hcloud_install.sh
 
 # Verify
-hcloud -v
+hcloud version
 ```
 
 Other regions: use the KooCLI install package for your site from
 <https://support.huaweicloud.com/qs-hcli/hcli_02_003.html>.
 
-## 2. Authenticate — Option A: local hcloud profile (recommended)
+## 2. Authenticate — Option A: local hcloud profile (recommended for interactive agents)
 
-```bash
-# Interactive profile creation (never paste AK/SK into chat; type them in the prompt)
-hcloud configure set --cli-mode=AKSK --cli-region=cn-north-4
-# then enter the AK and SK when prompted (credentials are stored encrypted by KooCLI)
+The agent must NOT write credentials on the user's behalf — never execute a credential-writing
+command (e.g. `configure set`/`configure init`) for them, and never inspect the raw profile:
+raw `hcloud configure show/list/get/export/init` is hook-blocked in agent tools.
 
-# Confirm only metadata (values are masked), never reveal keys:
-hcloud configure list
-```
+Check whether a profile already exists with `huaweicloud_show_profile_redacted` (the devkit's
+redacted status tool):
+
+- If a profile exists, use it directly (status via the redacted tool; the agent never sees secrets).
+- If no profile exists, tell the user to run `npx huaweicloud-devkit auth init` — the single
+  credential entry point, which mirrors to KooCLI without AK/SK entering shell history.
 
 > Never pass AK/SK as command-line arguments (`--cli-access-key=<value>`). Command lines can be
-> recorded in shell history; use the interactive prompt or environment variables instead.
+> recorded in shell history; the user types credentials at a terminal prompt instead.
 
 The default profile stores the region and auto-resolves the project ID for `--project_id`.
 
@@ -72,4 +76,4 @@ hcloud SMN CreateTopic --cli-region=cn-north-4 --help
 hcloud Kafka CreatePostPaidKafkaInstance --cli-region=cn-north-4 --help
 ```
 
-The skill's SKILL.md parameter tables were verified against KooCLI 7.2.12 on 2026-09-07.
+The skill's SKILL.md parameter tables were verified against KooCLI 7.2.12 on 2026-09-07; parameter surfaces re-checked identical on 7.3.12 (2026-10-22).

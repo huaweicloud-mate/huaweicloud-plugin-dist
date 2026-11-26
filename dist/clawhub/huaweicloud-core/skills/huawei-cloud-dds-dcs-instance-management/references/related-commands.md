@@ -1,3 +1,5 @@
+<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-dds-dcs-instance-management - do not edit -->
+
 # Detailed Command Reference
 
 ## DDS CLI Commands
@@ -23,20 +25,20 @@
 
 ## DCS CLI Commands
 
-| Action            | CLI Command                                                                                                                            |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| List instances    | `hcloud DCS ListInstances --cli-region={region} [--name={name}] [--instance_id={id}] [--status={status}] [--limit={n}] [--offset={n}]` |
-| Show instance     | `hcloud DCS ShowInstance --cli-region={region} --instance_id={id}`                                                                     |
-| Show IP whitelist | `hcloud DCS ShowIpWhitelist --cli-region={region} --instance_id={id}`                                                                  |
-| List ACL accounts | `hcloud DCS ListAclAccounts --cli-region={region} --instance_id={id}`                                                                  |
-| Delete instance   | `hcloud DCS DeleteSingleInstance --cli-region={region} --instance_id={id}`                                                             |
-| Restart instance  | `hcloud DCS RestartOrFlushInstances --cli-region={region} --instances.{N}={id} --action={restart_soft_restart_flush}`                  |
+| Action            | CLI Command                                                                                                                                              |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| List instances    | `hcloud DCS ListInstances --cli-region={region} [--name={name}] [--instance_id={id}] [--status={status}] [--capacity={gb}] [--limit={n}] [--offset={n}]` |
+| Show instance     | `hcloud DCS ShowInstance --cli-region={region} --instance_id={id}`                                                                                       |
+| Show IP whitelist | `hcloud DCS ShowIpWhitelist --cli-region={region} --instance_id={id}`                                                                                    |
+| List ACL accounts | `hcloud DCS ListAclAccounts --cli-region={region} --instance_id={id}`                                                                                    |
+| Delete instance   | `hcloud DCS DeleteSingleInstance --cli-region={region} --instance_id={id}`                                                                               |
+| Restart instance  | `hcloud DCS RestartOrFlushInstances --cli-region={region} --instances.{N}={id} --action={restart                                                         | soft_restart | flush}` |
 
 ## DCS SDK Operations
 
-| Action                 | SDK Method               | Required Params                                                                                                    |
-| ---------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| Get node info          | `show_nodes_information` | `instance_id`                                                                                                      |
-| List config templates  | `list_config_templates`  | `type` (sys/user), `engine` (Redis/Memcached), `engine_version`, `cache_mode` (missing required params → DCS.4063) |
-| Create custom template | `create_custom_template` | `body` with name, engine, cache_mode (+ type/user, engine_version, template_id)                                    |
-| Create instance        | `create_instance`        | `body` with name, engine, capacity, vpc_id, subnet_id                                                              |
+| Action                 | SDK Method               | Required Params                                                                                                              |
+| ---------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Get node info          | `show_nodes_information` | `instance_id`                                                                                                                |
+| List config templates  | `list_config_templates`  | `type` (sys/user), `engine` (Redis/Memcached), `engine_version`, `cache_mode` (missing required params → DCS.4063)           |
+| Create custom template | `create_custom_template` | `body` with name, engine, cache_mode (+ type/user, engine_version, template_id)                                              |
+| Create instance        | `create_instance`        | `body` with name, engine, engine_version, capacity, spec_code, no_password_access (or password), vpc_id, subnet_id, az_codes |

@@ -1,0 +1,100 @@
+#!/usr/bin/env node
+import { rmSync, existsSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { DevkitStdioTransport } from './mcp-stdio-transport.ts';
+import { createDevkitMcpServer } from './mcp-protocol.ts';
+import { DEFAULT_PORT, DEFAULT_HOST } from './mcp-server-remote.ts';
+import { getCachedUpdateInfo, readInstalledVersion } from './update-check.ts';
+import { maybePreinstallKooCli } from './preflight.ts';
+import { approvalModeFromEnv } from './lib/approval-mode.ts';
+
+const transportIdx = process.argv.indexOf('--transport');
+const transport = transportIdx > -1 && process.argv[transportIdx + 1] ? process.argv[transportIdx + 1] : 'stdio';
+const portIdx = process.argv.indexOf('--port');
+const remotePort = portIdx > -1 ? Number(process.argv[portIdx + 1]) : DEFAULT_PORT;
+const hostIdx = process.argv.indexOf('--host');
+const remoteHost = hostIdx > -1 && process.argv[hostIdx + 1] ? process.argv[hostIdx + 1] : DEFAULT_HOST;
+
+const projectDirIdx = process.argv.indexOf('--codearts-project-dir');
+if (projectDirIdx > -1 && process.argv[projectDirIdx + 1]) {
+  process.env.CODEARTS_PROJECT_DIR = process.argv[projectDirIdx + 1];
+}
+
+const endpointIdx = process.argv.indexOf('--hdkitservice-endpoint');
+if (endpointIdx > -1 && process.argv[endpointIdx + 1]) {
+  process.env.HDKITSERVICE_ENDPOINT = process.argv[endpointIdx + 1];
+}
+
+const telemetryEndpointIdx = process.argv.indexOf('--telemetry-endpoint');
+if (telemetryEndpointIdx > -1 && process.argv[telemetryEndpointIdx + 1]) {
+  process.env.HUAWEICLOUD_DEVKIT_TELEMETRY_ENDPOINT = process.argv[telemetryEndpointIdx + 1];
+}
+
+try {
+  const { readProxyConfig } = await import('./proxy/proxy-config.ts');
+  const proxyConfig = readProxyConfig();
+  if (proxyConfig) {
+    if (proxyConfig.https_proxy || proxyConfig.HTTPS_PROXY) {
+      process.env.HTTPS_PROXY = process.env.HTTPS_PROXY || proxyConfig.https_proxy || proxyConfig.HTTPS_PROXY;
+    }
+    if (proxyConfig.http_proxy || proxyConfig.HTTP_PROXY) {
+      process.env.HTTP_PROXY = process.env.HTTP_PROXY || proxyConfig.http_proxy || proxyConfig.HTTP_PROXY;
+    }
+  }
+} catch {
+  // best-effort: unreadable proxy config means no proxy env; the server still starts
+}
+
+// The MCP server is now loaded by a live agent session. Clear the install marker
+// in this plugin dir so `doctor` no longer reports "restart needed".
+try {
+  const pluginDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const marker = resolve(pluginDir, '.installed');
+  if (existsSync(marker)) rmSync(marker, { force: true });
+} catch {
+  // best-effort: a leftover marker only costs doctor a spurious restart hint
+}
+
+if (transport === 'remote') {
+  // Ask mode is a stdio-session posture: its confirmation is the server-run
+  // gate's elicitation form (or the T3 chat round-trip), and this stateless
+  // remote face carries no session to ask in — no client capability record
+  // and no in-band round-trip — so the env is forced back to the token gate,
+  // loudly, before any request handler resolves it. This is the only
+  // production entry to the remote surface.
+  if (approvalModeFromEnv(process.env) === 'ask') {
+    process.env.DEVKIT_APPROVAL_MODE = 'token';
+    process.stderr.write(
+      'DEVKIT_APPROVAL_MODE=ask is not supported on the remote transport (no session to run the confirmation in); falling back to token approval.\n',
+    );
+  }
+  const { startRemoteServer } = await import('./mcp-server-remote.ts');
+  startRemoteServer({ port: remotePort, host: remoteHost }).catch((error: unknown) => {
+    process.stderr.write(
+      `Failed to start MCP remote server: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    process.exit(1);
+  });
+} else {
+  // First-use UX (stdio only — the stateless remote must not churn the lock
+  // or trigger unattended downloads): if KooCLI is missing, kick off a
+  // background install so the first cloud command doesn't hit a bare
+  // "command not found". Fire-and-forget; never fatal, never blocks.
+  try {
+    maybePreinstallKooCli();
+  } catch {
+    // best-effort: preflight failures must never keep the server from starting
+  }
+  void runStdioServer();
+}
+
+async function runStdioServer() {
+  // 版本升级检测预热：异步、非阻塞；失败静默（离线/超时不影响会话）。
+  getCachedUpdateInfo(readInstalledVersion() || '0.0.0').catch(() => {});
+
+  const server = createDevkitMcpServer({ sessionId: 'stdin', runtimePacks: true });
+  const transport = new DevkitStdioTransport();
+  await server.connect(transport);
+}
