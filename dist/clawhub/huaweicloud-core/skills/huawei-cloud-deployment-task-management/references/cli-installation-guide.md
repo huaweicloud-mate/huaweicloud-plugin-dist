@@ -1,130 +1,111 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-deployment-task-management - do not edit -->
+# hcloud (KooCLI) Installation & Authentication Guide
 
-# KooCLI Installation & Authentication Guide
+This skill executes Huawei Cloud operations through the **hcloud (KooCLI)** command-line tool
+against the **CodeArtsDeploy** service (Huawei Cloud CloudDeploy).
 
-## 1. Install KooCLI (hcloud)
+## Install hcloud
 
-Huawei Cloud CLI (KooCLI) is a single binary. See the official quickstart:
-https://support.huaweicloud.com/qs-hcli/hcli_02_003.html
-
-```bash
-# Linux x86_64
-curl -sSL https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/hcloud_install.sh -o hcloud_install.sh
-bash hcloud_install.sh
-
-# Or via Python package manager
-pip3 install huaweicloudcli
-```
-
-Verify:
+See the official quick start: https://support.huaweicloud.com/qs-hcli/hcli_02_003.html
 
 ```bash
+# Download and install (Linux x86_64 shown; see docs for ARM/macOS variants)
+curl -sSL https://cn-north-4-hcli.obs.cn-north-4.myhuaweicloud.com/hcli_latest_linux_amd64.tar.gz -o hcli.tar.gz
+tar -xzf hcli.tar.gz
+./hcloud_install.sh
+
+# Verify
 hcloud version
-hcloud CodeArtsDeploy --help        # should list Available Operations for CodeArtsDeploy
 ```
 
-Keep KooCLI updated so CodeArtsDeploy operation/parameter metadata stays current:
+For other OS/architectures, follow https://support.huaweicloud.com/qs-hcli/hcli_02_003.html.
+
+## Update KooCLI
 
 ```bash
 hcloud update -y
 ```
 
-## 2. Service name
+## Service Name
 
-The service name is `CodeArtsDeploy` (KooCLI metadata directory `codeartsdeploy`).
-`CloudDeploy` and `Deploy` are NOT accepted — `hcloud CloudDeploy <op>` reports
-`[USE_ERROR]Unsupported service: CloudDeploy.` on the default en locale
-(`[USE_ERROR]不支持的服务名称` under `--cli-lang=cn`). Always verify with
-`hcloud CodeArtsDeploy ListAllApp --cli-region=cn-north-4 --help`.
-
-## 3. Authentication
-
-Two supported ways (AK/SK never hardcoded in this skill):
-
-### Option A — Local profile (recommended for interactive agents)
-
-The agent must NOT write credentials on the user's behalf — never execute a credential-writing
-command (e.g. `configure set`/`configure init`) for them, and never inspect the raw profile:
-raw `hcloud configure show/list/get/export/init` is hook-blocked in agent tools.
-
-Check whether a profile already exists with `huaweicloud_show_profile_redacted` (the devkit's
-redacted status tool):
-
-- If a profile exists, use it directly (status via the redacted tool; the agent never sees secrets).
-- If no profile exists, tell the user to run `npx huaweicloud-devkit auth init` — the single
-  credential entry point, which mirrors to KooCLI without AK/SK entering shell history.
-
-### Option B — Environment variables (recommended for CI/agent runtimes)
-
-KooCLI reads the following environment variables (among others):
-
-| Variable                                           | Meaning                                         |
-| -------------------------------------------------- | ----------------------------------------------- |
-| `HUAWEICLOUD_SDK_AK` / `HUAWEI_ACCESS_KEY`         | Access Key ID                                   |
-| `HUAWEICLOUD_SDK_SK` / `HUAWEI_SECRET_KEY`         | Secret Access Key                               |
-| `HUAWEICLOUD_SDK_PROJECT_ID` / `HUAWEI_PROJECT_ID` | Project ID (optional; KooCLI can resolve it)    |
-| `HUAWEICLOUD_SDK_SECURITY_TOKEN`                   | Security token (only for temporary credentials) |
-
-Example:
+The CloudDeploy service is exposed by KooCLI under the name **`CodeArtsDeploy`** (metadata
+directory `codeartsdeploy`). The name `CloudDeploy` is NOT accepted by the CLI
+(`hcloud CloudDeploy ...` reports "Unsupported service"). Verify with:
 
 ```bash
-export HUAWEICLOUD_SDK_AK=your-access-key
-export HUAWEICLOUD_SDK_SK=your-secret-key
-export HUAWEICLOUD_SDK_REGION=cn-north-4
+hcloud CodeArtsDeploy --help
 ```
 
-### Security rules
+## Authentication
 
-- Never print, persist, or hardcode AK/SK — read them from the environment or the local profile only.
-- Never write AK/SK with `configure set` from inside a skill document or script; the agent checks profile status only via `huaweicloud_show_profile_redacted`.
-- Use the most restrictive IAM identity that still allows the needed CodeArtsDeploy operations (least privilege, see `references/iam-policies.md`).
+### Option 1: hcloud profile (AK/SK)
 
-## 4. Verifying authentication
+Use the hcloud configuration command to persist your access key and secret key into the default
+profile, along with the default region and project:
 
 ```bash
-# Read-only probe (a valid error JSON such as Deploy.00016902 项目不存在 also
-# proves the CLI + credentials are functional — it means auth resolved and the
-# API was reached)
+hcloud configure set --cli-profile=default --cli-region=cn-north-4 \
+  --cli-access-key=<your-access-key-id> --cli-secret-key=<your-access-key-secret>
+hcloud configure list   # verify
+```
+
+> Never commit the `configure set` command with real keys into code or documents —
+> it is a local machine operation.
+
+### Option 2: Environment variables (auto-detected)
+
+hcloud automatically reads credentials from:
+
+- `HUAWEICLOUD_SDK_AK` / `HUAWEICLOUD_SDK_SK`, or
+- `HUAWEI_ACCESS_KEY` / `HUAWEI_SECRET_KEY` (with optional `HUAWEI_SECURITY_TOKEN`)
+
+```bash
+export HUAWEICLOUD_SDK_AK={YOUR_ACCESS_KEY}
+export HUAWEICLOUD_SDK_SK={YOUR_SECRET_KEY}
+```
+
+### Option 3: SSO / other modes
+
+Refer to `hcloud configure --help` for additional modes (e.g. SSO login).
+
+## Region & Project
+
+- All CodeArtsDeploy APIs are region/project scoped. Pass `--cli-region={region}` explicitly.
+- `--project_id` is required by most operations. The project must be a **CodeArts (DevCloud)
+  project**; a plain IAM project returns `Deploy.00016902 项目不存在` from the Deploy API.
+- If `--project_id` is omitted, KooCLI uses `cli-project-id` from the profile or the parent project
+  of the region in the authentication information.
+
+## OBS Artifact Check (obsutil)
+
+`huawei_analyze_clouddeploy_artifact` verifies that the OBS object referenced by a deployment task
+exists. hcloud forwards OBS commands to **obsutil** (`hcloud obs <command>`). Initialize it once:
+
+```bash
+# Interactive configuration (recommended) — type the AK/SK/endpoint at the terminal;
+# the credentials are never placed on the command line, so they do not leak into
+# shell history or process listings (ps aux).
+hcloud obs config -interactive
+# Non-interactive equivalent (CI scripts only) — WARNING: the plaintext AK/SK in the
+# argv is a credential-leak vector (shell history / ps aux). Prefer -interactive or
+# read from environment variables; never log this command.
+# hcloud obs config -i={access_key} -k={secret_key} -e=https://obs.cn-north-4.myhuaweicloud.com
+```
+
+Then check objects:
+
+```bash
+hcloud obs ls obs://{artifact_bucket}/{artifact_object_path}
+```
+
+> `-i`/`-k` are provided from your credentials at runtime; never store them in files in the skill
+> directory. `obsutil` object URLs use the `obs://` scheme — `s3://` is rejected with `cloud_url
+is not in well format`.
+
+## Verification
+
+```bash
 hcloud CodeArtsDeploy ListAllApp --cli-region=cn-north-4 --project_id={project_id} --page=1 --size=10
 ```
 
-## 5. Region and project
-
-All CodeArtsDeploy APIs are region/project scoped. Always pass `--cli-region` (e.g.
-`cn-north-4`) and `--project_id`. The project must be a CodeArts (DevCloud) project — an IAM
-project alone returns `Deploy.00016902 项目不存在`.
-
-## 6. OBS artifact check (obsutil)
-
-Deployment tasks pull artifacts from OBS, and `hcloud obs <command>` is an obsutil passthrough
-(raw CLI, not a KooCLI SDK API). Initialize obsutil once per machine/region:
-
-- Devkit path: `huaweicloud_setup_obs_config` (owned by the `obs` pack) mirrors the
-  authenticated credentials into `~/.obsutilconfig` — one call, no typing.
-- Manual fallback (user-run; AK/SK are typed at the terminal and stay out of shell history —
-  avoid the `-i=`/`-k=` command-line forms, which leak credentials into `ps aux`):
-
-```bash
-hcloud obs config -interactive
-hcloud obs ls obs://{artifact_bucket}        # self-check with an explicit obs:// URI
-```
-
-If `hcloud obs` prints `Warn: Please set ak, sk and endpoint in the configuration file!`,
-obsutil has not been configured yet.
-
-## 7. skill-quality-cli (OPTIONAL local wrapper)
-
-The wrapper is OPTIONAL — when absent, this skill's hcloud commands run bare with identical
-semantics. The normalized v2 wrapper performs NO telemetry, NO network access, and NO
-self-upgrade; it only wraps whitelisted `hcloud` commands.
-
-```bash
-bash scripts/ensure_cli.sh   # availability CHECK only (no install, no PATH persistence)
-skill-quality-cli version    # verify it works, if installed
-```
-
-- Manual local deployment (offline): copy `scripts/cli/cli_entry.py` to
-  `~/.local/bin/skill-quality-cli.d/` and create `~/.local/bin/skill-quality-cli` as a
-  one-line wrapper executing `python3 ~/.local/bin/skill-quality-cli.d/cli_entry.py "$@"`.
-- There is nothing to disable: the wrapper reports nothing and contacts nothing.
-- If the wrapper is absent, run the inner `hcloud` command from the examples directly.
+A successful JSON response (or a valid error JSON such as `Deploy.00016902` for a non-CodeArts
+project) means the CLI + credentials are functional.

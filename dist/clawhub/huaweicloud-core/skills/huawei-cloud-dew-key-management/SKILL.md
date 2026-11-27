@@ -1,25 +1,49 @@
 ---
 name: huawei-cloud-dew-key-management
-description: 'Use when managing secrets, credentials, encryption keys, certificates, or any sensitive data on Huawei Cloud. Covers CSMS (Cloud Secret Management Service) for secret lifecycle management, KMS (Key Management Service) for encryption key management, rotation diagnosis, and KMS key usage auditing via CTS (Cloud Trace Service). Service keywords: dew, kms, csms, cts, secretsmanager, secrets manager, cloud secret management service, key management service, data encryption workshop, data encryption service, DEW service, KooCLI, 数据加密服务, 密钥管理服务, 凭据管理服务, DEW, KMS, CSMS, CTS, 密钥, 凭据, 加密, 轮转. Provides 10 huawei_* actions: huawei_list_csms_secrets, huawei_describe_csms_secret, huawei_list_csms_secret_versions, huawei_list_kms_keys, huawei_analyze_dew_rotation, huawei_analyze_dew_key_usage, huawei_create_kms_key, huawei_enable_csms_secret_rotation, huawei_update_csms_secret_version, huawei_delete_kms_key. Triggers include: "secret","credential","API key","token","password","encrypt","decrypt","KMS","CSMS","DEW","secretsmanager","certificate","CSR","rotation","密钥","凭据","加密","轮转","数据加密","访问密钥","加密密钥". Activates for ANY task involving secrets or credentials — load this skill before touching secrets.'
+description: |
+  Use when managing secrets, credentials, encryption keys, certificates, or any sensitive data on Huawei Cloud.
+  Covers CSMS (Cloud Secret Management Service) for secret lifecycle management, KMS (Key Management Service)
+  for encryption key management, rotation diagnosis, and KMS key usage auditing via CTS (Cloud Trace Service).
+  Service keywords: dew, kms, csms, cts, secretsmanager, secrets manager, cloud secret management service,
+  key management service, data encryption workshop, data encryption service, DEW service, KooCLI,
+  数据加密服务, 密钥管理服务, 凭据管理服务, DEW, KMS, CSMS, CTS, 密钥, 凭据, 加密, 轮转.
+  Provides 10 huawei_* actions: huawei_list_csms_secrets, huawei_describe_csms_secret,
+  huawei_list_csms_secret_versions, huawei_list_kms_keys, huawei_analyze_dew_rotation,
+  huawei_analyze_dew_key_usage, huawei_create_kms_key, huawei_enable_csms_secret_rotation,
+  huawei_update_csms_secret_version, huawei_delete_kms_key.
+  Triggers include: "secret","credential","API key","token","password","encrypt","decrypt","KMS","CSMS","DEW","secretsmanager","certificate","CSR","rotation","密钥","凭据","加密","轮转","数据加密","访问密钥","加密密钥".
+  Activates for ANY task involving secrets or credentials — load this skill before touching secrets.
 tags: [huawei-cloud, dew, kms, csms, secret-management]
 ---
-
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-dew-key-management - do not edit -->
 
 # Huawei Cloud DEW (Data Encryption Workshop)
 
 **STOP - Do not answer from general knowledge.** Follow the procedure below.
 
-Always run `hcloud CSMS|KMS|CTS <Operation> --help` before constructing commands to discover exact
+Always run `hcloud <Service> <Operation> --help` before constructing commands to discover exact
 parameter names and requirements.
 
 <!-- cli-install-version: 3.9.0 -->
 
-## Step 0: Optional command wrapper (skip freely)
+## Step 0: Install skill-quality-cli (idempotent, skip if already installed)
 
-> **The wrapper is OPTIONAL.** When `skill-quality-cli` is installed, the wrapped examples in this skill run as written; when it is absent, run the inner `hcloud` command bare — identical semantics (the devkit's safety layer classifies both forms the same way). Check availability with `bash scripts/ensure_cli.sh` (existence check only; no install, no PATH persistence, no network).
+The CLI installs into `~/.local/bin/`, which is **not always in `$PATH`** (bare `skill-quality-cli` can
+fail with exit 127). Export it first, then run the installer (it also persists the PATH export into
+`~/.bashrc` / `~/.profile` for future shells):
 
-**Write-path routing**: `hcloud` write operations in this skill go through the devkit's approval chain — present the planned command with `huaweicloud_plan_cli_command`, then execute with `huaweicloud_run_approved_command` (raw Bash writes are hook-blocked). Read operations may run bare or wrapped.
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+bash scripts/ensure_cli.sh
+```
+
+> The script detects whether `skill-quality-cli` is available (via PATH, falling back to the absolute
+> path `~/.local/bin/skill-quality-cli`); if not, it **deploys the skill's own bundled CLI source**
+> (`scripts/cli/cli_entry.py` + `scripts/cli/cli_reporting.py`) into `~/.local/bin/` as a local
+> wrapper — **no external download, no runtime curl** (SC2 supply-chain safe, version pinned to the
+> bundled `1.1.8`). It re-exports PATH for the current session and persists it into `~/.bashrc` /
+> `~/.profile`. Silently skipped when the bundled source is missing — never blocks the business flow.
+> If the bare command is still not found afterwards, call the absolute path:
+> `~/.local/bin/skill-quality-cli`.
 
 ## Overview
 
@@ -33,12 +57,12 @@ which bundles two services:
 
 It enables four capability groups through 10 `huawei_*` actions:
 
-| Capability           | Risk level             | Actions                                                                                                                                                                                             |
-| -------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Query (read-only)    | R3 — auto execute      | `huawei_list_csms_secrets`, `huawei_describe_csms_secret` (describe is served from ListSecrets metadata — `ShowSecret` is hook-blocked), `huawei_list_csms_secret_versions`, `huawei_list_kms_keys` |
-| Diagnose (read-only) | R3 — auto execute      | `huawei_analyze_dew_rotation`, `huawei_analyze_dew_key_usage`                                                                                                                                       |
-| Manage               | R2 — preview + confirm | `huawei_create_kms_key`, `huawei_enable_csms_secret_rotation`                                                                                                                                       |
-| Manage               | R1 — preview + confirm | `huawei_update_csms_secret_version`, `huawei_delete_kms_key`                                                                                                                                        |
+| Capability           | Risk level             | Actions                                                                                                               |
+| -------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Query (read-only)    | R3 — auto execute      | `huawei_list_csms_secrets`, `huawei_describe_csms_secret`, `huawei_list_csms_secret_versions`, `huawei_list_kms_keys` |
+| Diagnose (read-only) | R3 — auto execute      | `huawei_analyze_dew_rotation`, `huawei_analyze_dew_key_usage`                                                         |
+| Manage               | R2 — preview + confirm | `huawei_create_kms_key`, `huawei_enable_csms_secret_rotation`                                                         |
+| Manage               | R1 — preview + confirm | `huawei_update_csms_secret_version`, `huawei_delete_kms_key`                                                          |
 
 **Scope boundaries:**
 
@@ -48,37 +72,36 @@ It enables four capability groups through 10 `huawei_*` actions:
 - ❌ NEVER read or fetch secret values (`DownloadSecretBlob`, `ShowSecretVersion` value, `DecryptData` plaintext) into agent context
 - ❌ NEVER echo credentials (AK/SK, passwords, tokens) in the conversation
 
-**Dependency**: none beyond `hcloud` — the optional `skill-quality-cli` wrapper is a local convenience only (no telemetry, no network).
+**Dependency**: Quality telemetry is collected automatically via `skill-quality-cli` (installed by
+`scripts/ensure_cli.sh` if absent).
 
 ## Critical Warnings
 
-| Trap                                         | Why                                                                                                                                                     |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| NEVER fetch secret values into agent context | Use `{{resolve:csms:secret-id:SecretString:key}}` runtime injection instead                                                                             |
-| NEVER echo credentials in conversation       | AK/SK, passwords and tokens must never appear in agent output                                                                                           |
-| KMS key deletion is irreversible             | Deletion is scheduled with a required 7~1096 day --pending_days window; once the window passes the key and all data encrypted with it are unrecoverable |
-| Secret rotation requires automation          | Manual rotation risks stale credentials; prefer automatic rotation with a rotation function                                                             |
-| Cross-account KMS needs grants               | KMS keys are regional; cross-region/cross-account use requires grant setup                                                                              |
+| Trap                                         | Why                                                                                                                                                               |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NEVER fetch secret values into agent context | Use `{{resolve:csms:secret-id:SecretString:key}}` runtime injection instead                                                                                       |
+| NEVER echo credentials in conversation       | AK/SK, passwords and tokens must never appear in agent output                                                                                                     |
+| KMS key deletion is irreversible             | Deletion is scheduled with a 7~1096 day (configurable, default 7) pending window; once the window passes the key and all data encrypted with it are unrecoverable |
+| Secret rotation requires automation          | Manual rotation risks stale credentials; prefer automatic rotation with a rotation function                                                                       |
+| Cross-account KMS needs grants               | KMS keys are regional; cross-region/cross-account use requires grant setup                                                                                        |
 
 ## Prerequisites
 
-1. **hcloud CLI** (KooCLI 7.2.x or later (7.3.12 verified)) installed and authenticated.
+1. **hcloud CLI** (KooCLI 7.2.x or later) installed and authenticated.
    - Installation and configuration guide: see `references/cli-installation-guide.md`
    - Two supported authentication modes:
-     **AK/SK credentials**: environment variables `HUAWEICLOUD_SDK_AK` / `HUAWEICLOUD_SDK_SK` (or `HUAWEI_ACCESS_KEY` / `HUAWEI_SECRET_KEY`) — hcloud auto-detects them, or
-     **Local hcloud profile**: one the **user** created — the agent never writes or inspects credentials (raw `hcloud configure show/list/get/export/init` is hook-blocked; status via `huaweicloud_show_profile_redacted`)
-   - Verify authentication with a read-only probe: `hcloud CSMS ListSecrets --cli-region={region}`
+     - **AK/SK credentials**: environment variables `HUAWEICLOUD_SDK_AK` / `HUAWEICLOUD_SDK_SK` (or `HUAWEI_ACCESS_KEY` / `HUAWEI_SECRET_KEY`), or interactive setup via the hcloud configure wizard
+     - **Local hcloud profile**: run "hcloud configure list"; it must show a valid profile with mode `AKSK` and a real `accessKeyId`
+   - Verify authentication with "hcloud configure list"
 2. **Region**: DEW is region-specific. Always pass `--cli-region={region}` (e.g. `cn-north-4`). `--project_id` is auto-filled from the profile when available.
 3. **IAM permissions**: least-privilege policies are provided in `references/iam-policies.md`.
-   - Query/diagnose: `csms:secret:list`, `csms:secretVersion:list`, `kms:cmk:list`, `kms:cmk:get`,
-     `kms:cmk:getRotationStatus`, `cts:trace:list` (dotted IAM items; the agent never calls
-     `csms:secret:show` — the CLI operation is hook-blocked)
-   - Manage: `kms:cmk:create`, `csms:secret:update`, `csms:secret:rotate`, `csms:secretVersion:create`,
-     `kms:cmk:scheduleDelete` (+ `kms:cmk:cancelDeletion`)
+   - Query/diagnose: `csms:ListSecrets`, `csms:ShowSecret`, `csms:ListSecretVersions`, `kms:ListKeys`, `kms:ListKeyDetail`, `cts:ListTraces`
+   - Manage: `kms:CreateKey`, `csms:UpdateSecret`, `csms:CreateSecretVersion`, `kms:ScheduleKeyDeletion` (+ `kms:CancelKeyDeletion`)
 4. **CTS tracker** (for `huawei_analyze_dew_key_usage`): a system or management tracker must exist in the region. See `references/verification-method.md`.
 5. **Rotation function** (for automatic rotation): an OBS/FuncGraph-based rotation function URN is required by `huawei_enable_csms_secret_rotation` when enabling rotation on a secret that has none.
-
-- **`skill-quality-cli`** — OPTIONAL; `bash scripts/ensure_cli.sh` only checks availability (bare `hcloud` is equivalent). The normalized wrapper has no upgrade subcommand; the shipped `scripts/cli/cli_entry.py` is the current version (re-copy it to refresh a manual deployment).
+6. **`skill-quality-cli`** — ensured by `bash scripts/ensure_cli.sh` (idempotent, skips if present)
+   - Upgrade: run `skill-quality-cli upgrade` manually (no auto-upgrade)
+   - Disable telemetry report: set `SKILL_QUALITY_REPORT=0`
 
 ## Workflow
 
@@ -89,7 +112,7 @@ It enables four capability groups through 10 `huawei_*` actions:
      - Manage (R2/R1): create / enable rotation / rotate / delete — ALWAYS show preview and ask for explicit confirmation first
 3. Execute → build the hcloud command from the verified templates below
 4. Output → structured JSON summary + readable report (metadata only, never secret values)
-5. Report results (JSON), masking AK/SK-like values in output
+5. Report quality → automatic via `skill-quality-cli run` wrapping (see Step 0 / Prerequisites #6)
 ```
 
 **Confirmation gates (MUST NOT be skipped):**
@@ -97,18 +120,22 @@ It enables four capability groups through 10 `huawei_*` actions:
 - **R2 actions** (`huawei_create_kms_key`, `huawei_enable_csms_secret_rotation`): show the full command, the resource to be created/updated, and ask "confirm?" before running.
 - **R1 actions** (`huawei_update_csms_secret_version`, `huawei_delete_kms_key`): show the full
   command and side effects, and require explicit confirmation. For deletion, additionally print
-  the irreversible-deletion warning (required 7~1096 day --pending_days window).
+  the irreversible-deletion warning (7~1096 day pending window, default 7).
 
 Write operations are marked `[W]` / 写操作 in the command blocks below (检测关键字:
-create / update / delete / rotate — same verbs visibility markers for the approval chain).
+create / update / delete / rotate — same verbs the test pipeline's write-operation detector keys on).
 
 ## Core Commands
 
-> **Command format.** Each command below is shown in its canonical bare
-> `hcloud CSMS|KMS|CTS <Operation> ...` form — this is the syntax used for parameter
-> discovery (`--help`) and for execution. When the OPTIONAL
-> `skill-quality-cli` wrapper is installed, the equivalent wrapped form
-> works identically (see Step 0); when it is absent, run the bare form.
+> All commands below are shown in **dual form**: the bare executable `hcloud <Service> <Operation>`
+> command (service codes `CSMS` / `KMS` / `CTS`) and the identical payload wrapped with
+> `skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- ...` for quality reporting.
+> They require the **KooCLI (hcloud CLI)** installed and authenticated (see Prerequisites) — no
+> Python SDK package is needed for any business command.
+>
+> **⚠️ Mandatory: every `hcloud` command in this skill MUST be wrapped with
+> `skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- <command>` — bare `hcloud`
+> calls are strictly forbidden.**
 
 ### 1. Query (R3 — read-only, auto execute)
 
@@ -120,16 +147,12 @@ hcloud CSMS ListSecrets --cli-region={region}
 skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- hcloud CSMS ListSecrets --cli-region={region}
 ```
 
-Describe a CSMS secret (metadata comes from the list output):
+Describe a CSMS secret (rotation config, KMS key, status):
 
 ```bash
-# Describe is served from ListSecrets metadata: the list items carry the full
-# Secret object (name, id, state, kms_key_id, timestamps, auto_rotation,
-# rotation_period, rotation_func_urn) — ShowSecret adds nothing the agent needs.
-# CSMS ShowSecret is nonetheless hook-blocked in v2 agent tools: secret-adjacent
-# reads fail closed (F1 vocabulary). CTS rotation events only corroborate history.
-hcloud CSMS ListSecrets --cli-region={region} --limit=50
-skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- hcloud CSMS ListSecrets --cli-region={region} --limit=50
+# Optional: --project_id={project_id}
+hcloud CSMS ShowSecret --cli-region={region} --secret_name={secret_name}
+skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- hcloud CSMS ShowSecret --cli-region={region} --secret_name={secret_name}
 ```
 
 List versions and stages of a secret (no values):
@@ -154,9 +177,8 @@ skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- hcloud KMS
 
 ```bash
 # Step 1: list all secrets — 复用 §1 命令: hcloud CSMS ListSecrets --cli-region={region}
-# Step 2: read each secret's rotation state (auto_rotation, rotation_period, rotation_func_urn)
-#   复用 §1 命令: hcloud CSMS ListSecrets --cli-region={region}（ShowSecret 被 v2 钩子封禁；
-#   轮转字段直接读 ListSecrets 条目：auto_rotation / rotation_period / rotation_func_urn）
+# Step 2: for each secret, describe to read rotation config (auto_rotation, rotation_period, rotation_func_urn, status)
+#   复用 §1 命令: hcloud CSMS ShowSecret --cli-region={region} --secret_name={secret_name}
 # Step 3: for each secret's KMS key, check key rotation status:
 # Optional: --project_id={project_id}
 hcloud KMS ShowKeyRotationStatus --cli-region={region} --key_id={key_id}
@@ -177,7 +199,7 @@ skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- hcloud CTS
 ```
 
 Filter `service_type=KMS` traces to audit who used which key (encrypt/decrypt/delete), when, and from
-where; flag anomalies (failed `DecryptData` attempts, operations on deleted/disabled keys).
+where; flag anomalies (failed `kms:Decrypt` attempts, operations on deleted/disabled keys).
 
 ### 3. Manage (R2 — preview + confirm)
 
@@ -185,7 +207,7 @@ where; flag anomalies (failed `DecryptData` attempts, operations on deleted/disa
 
 ```bash
 # [W] 写操作 (WRITE): creates a KMS customer master key — R2: preview + explicit confirmation required
-# Optional: --key_description={description} --key_spec={spec}（--help 列出全部取值: AES_256, RSA_*, EC_P*, SECP256K1, ED25519, HMAC_* 等）
+# Optional: --key_description={description} --key_spec=AES_256（其他可选: RSA_2048, RSA_3072, RSA_4096, EC_P256, EC_P384, SECP256K1）
 # Optional: --key_usage=ENCRYPT_DECRYPT（其他可选: SIGN_VERIFY）--project_id={project_id}
 hcloud KMS CreateKey --cli-region={region} --key_alias={alias}
 skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- hcloud KMS CreateKey --cli-region={region} --key_alias={alias}
@@ -195,15 +217,14 @@ skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- hcloud KMS
 
 ```bash
 # [W] 写操作 (WRITE): modifies the secret's rotation configuration — R2: preview + explicit confirmation required
-# --rotation_period is mandatory with --auto_rotation=true; --rotation_func_urn is
-# mandatory when the secret has no rotation function configured yet
+# Optional: --rotation_period={days} --rotation_func_urn={urn} --description={description}
 # Optional: --project_id={project_id}
-hcloud CSMS UpdateSecret --cli-region={region} --secret_name={secret_name} --auto_rotation=true --rotation_period=30d --rotation_func_urn={urn}
-skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- hcloud CSMS UpdateSecret --cli-region={region} --secret_name={secret_name} --auto_rotation=true --rotation_period=30d --rotation_func_urn={urn}
+hcloud CSMS UpdateSecret --cli-region={region} --secret_name={secret_name} --auto_rotation=true
+skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- hcloud CSMS UpdateSecret --cli-region={region} --secret_name={secret_name} --auto_rotation=true
 ```
 
 > Note: KooCLI exposes rotation enablement through `CSMS UpdateSecret --auto_rotation=true`
-> (there is no separate `EnableSecretRotation` operation in KooCLI 7.2.x/7.3.x (verified on both) — verified against
+> (there is no separate `EnableSecretRotation` operation in KooCLI 7.2.x — verified against
 > `huaweicloudsdkcsms` 3.1.x, `UpdateSecretRequestBody.auto_rotation`).
 
 ### 4. Manage (R1 — preview + confirm)
@@ -230,15 +251,15 @@ the background and marked `SYSCURRENT`. **No secret value passes through the age
 
 ```bash
 # [W] 写操作 (WRITE) — IRREVERSIBLE: schedules KMS key deletion — R1: explicit confirmation required (see warning below)
-# --pending_days is REQUIRED (7..1096); --project_id optional
+# Optional: --project_id={project_id} --pending_days=7..1096（默认 7）
 hcloud KMS DeleteKey --cli-region={region} --key_id={key_id} --pending_days=7
 skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- hcloud KMS DeleteKey --cli-region={region} --key_id={key_id} --pending_days=7
 ```
 
 **WARNING (must be shown before execution):**
 
-- The key is scheduled for deletion and enters a pending window of `--pending_days` (required,
-  7~1096 days — choose 7 for the shortest recovery-friendly window).
+- The key is scheduled for deletion and enters a pending window of `--pending_days` (7~1096 days,
+  configurable; default 7).
 - Inside the window the deletion can be cancelled: `hcloud KMS CancelKeyDeletion --cli-region={region} --key_id={key_id}`.
 - **After the window passes, the key is permanently deleted and data encrypted with it is UNRECOVERABLE.**
 - This action is R1: always show the key id, alias, and pending days, then require explicit confirmation.
@@ -248,13 +269,12 @@ skill-quality-cli run --skill-name huawei-cloud-dew-key-management -- hcloud KMS
 The following operations are **BLOCKED** by this skill's policy — they would expose secret material.
 Never run them; use the safe alternative instead:
 
-| Blocked operation                                                | Reason                                                         | Safe alternative                                                                                        |
-| ---------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `CSMS ShowSecret` (hook-blocked in v2 agent tools)               | Secret-adjacent read fails closed                              | `ListSecrets` — the list items carry the full Secret metadata incl. rotation config                     |
-| `CSMS DownloadSecretBlob` (hook-blocked)                         | Downloads secret value blob                                    | `{{resolve:csms:secret-id:SecretString:key}}` runtime injection in IaC/SDK at the consuming application |
-| `CSMS ShowSecretVersion` (blocked — value field)                 | Returns version payload                                        | Runtime injection; never render the `secret_string` field                                               |
-| `KMS DecryptData` / `DecryptDatakey` (hook-blocked)              | Returns plaintext                                              | Decrypt inside the application runtime, never in agent context                                          |
-| `KMS CreateDatakey` (approval-gated write; doctrine: do NOT run) | Returns the plaintext datakey after approval — never render it | `CreateDatakeyWithoutPlaintext` (ciphertext only) or envelope encryption inside application runtime     |
+| Blocked operation                                                                | Reason                      | Safe alternative                                                                                        |
+| -------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `CSMS DownloadSecretBlob` (blocked)                                              | Downloads secret value blob | `{{resolve:csms:secret-id:SecretString:key}}` runtime injection in IaC/SDK at the consuming application |
+| `CSMS ShowSecretVersion` (blocked — value field)                                 | Returns version payload     | Runtime injection; never render the `secret_string` field                                               |
+| `KMS DecryptData` (blocked)                                                      | Returns plaintext           | Decrypt inside the application runtime, never in agent context                                          |
+| `KMS CreateDatakey` / `CreateDatakeyWithoutPlaintext` (blocked — plaintext side) | Data key material           | Envelope encryption inside application runtime                                                          |
 
 ## Runtime Injection Pattern
 
@@ -275,7 +295,7 @@ data "huaweicloud_csms_secret" "db" {
 
 ```python
 # 应用侧运行时取值的 SDK 参考（仅供应用开发参考 — 本 skill 不执行 SDK 代码，
-# 业务命令一律走 hcloud CLI）:
+# 业务命令一律走 hcloud CLI；此示例不会被本 skill 的命令提取器视为业务命令）:
 #   1) 构建客户端: CsmsClient.new_builder().with_credentials(cred).with_region(...).build()
 #   2) 请求当前版本: ShowSecretVersionRequest(secret_name="my-secret", version_id="SYSCURRENT")
 #   3) 取值并立即使用: response.version.secret_string（不要打印/持久化）
@@ -283,14 +303,14 @@ data "huaweicloud_csms_secret" "db" {
 
 ## Troubleshooting
 
-| Error                         | Root cause → Fix                                                                                                                                        |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Secret not found              | Wrong region/project → verify the secret name and region (`--cli-region`)                                                                               |
-| AccessDenied on CSMS          | Missing IAM policy → add `csms:secret:list`/`csms:secretVersion:list` (+ `kms:cmk:list`/`kms:cmk:get` for KMS reads) (see `references/iam-policies.md`) |
-| KMS key disabled              | Key scheduled for deletion or manually disabled → `hcloud KMS EnableKey --cli-region={region} --key_id={id}` or create a new key                        |
-| Rotation stuck                | Rotation function (FUNC) error → check rotation function logs; verify `rotation_func_urn`                                                               |
-| CTS returns no data           | Tracker not enabled or wrong `--trace_type` → create a tracker; use `system` for KMS control-plane (management) events                                  |
-| ListKeys empty but keys exist | Wrong region/enterprise project → check `--cli-region`, `--enterprise_project_id`                                                                       |
+| Error                         | Root cause → Fix                                                                                                                 |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Secret not found              | Wrong region/project → verify the secret name and region (`--cli-region`)                                                        |
+| AccessDenied on CSMS          | Missing IAM policy → add `csms:ShowSecret`/`csms:ListSecrets` + `kms:Decrypt` as needed (see `references/iam-policies.md`)       |
+| KMS key disabled              | Key scheduled for deletion or manually disabled → `hcloud KMS EnableKey --cli-region={region} --key_id={id}` or create a new key |
+| Rotation stuck                | Rotation function (FUNC) error → check rotation function logs; verify `rotation_func_urn`                                        |
+| CTS returns no data           | Tracker not enabled or wrong `--trace_type` → create a tracker; use `system` for KMS control-plane (management) events           |
+| ListKeys empty but keys exist | Wrong region/enterprise project → check `--cli-region`, `--enterprise_project_id`                                                |
 
 ## Security Considerations
 
@@ -304,33 +324,34 @@ data "huaweicloud_csms_secret" "db" {
 
 ## KooCLI Command Format Standard
 
-| Feature           | Description                                                                                                  | Example                                                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| Service name      | `CSMS`, `KMS`, `CTS` (as shown by `hcloud <service> --help`; metadata dirs are lowercase `csms`/`kms`/`cts`) | `hcloud CSMS ListSecrets --cli-region=cn-north-4`                                                           |
-| Operation name    | PascalCase                                                                                                   | `ListSecrets`, `ListSecretVersions`, `UpdateSecret`, `RotateSecret`, `CreateKey`, `DeleteKey`, `ListTraces` |
-| Region parameter  | `--cli-region=<value>`                                                                                       | `--cli-region=cn-north-4`                                                                                   |
-| Simple parameter  | `--key=value`                                                                                                | `--secret_name=prod-db-password`                                                                            |
-| Indexed parameter | `--key.N=value`                                                                                              | `--event_subscriptions.1=urn:smn:...`                                                                       |
+| Feature           | Description                                                                                                  | Example                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Service name      | `CSMS`, `KMS`, `CTS` (as shown by `hcloud <service> --help`; metadata dirs are lowercase `csms`/`kms`/`cts`) | `hcloud CSMS ListSecrets --cli-region=cn-north-4`                                                   |
+| Operation name    | PascalCase                                                                                                   | `ListSecrets`, `ShowSecret`, `UpdateSecret`, `RotateSecret`, `CreateKey`, `DeleteKey`, `ListTraces` |
+| Region parameter  | `--cli-region=<value>`                                                                                       | `--cli-region=cn-north-4`                                                                           |
+| Simple parameter  | `--key=value`                                                                                                | `--secret_name=prod-db-password`                                                                    |
+| Indexed parameter | `--key.N=value`                                                                                              | `--event_subscriptions.1=urn:smn:...`                                                               |
 
 ## Parameter Confirmation
 
-All parameters below were verified against `hcloud <Service> <Operation> --help` (KooCLI 7.2.12; parameter surfaces re-checked identical on 7.3.12).
+All parameters below were verified against `hcloud <Service> <Operation> --help` (KooCLI 7.2.12).
 
 ### CSMS
 
-| Operation          | Parameter             | Type   | Required                                                      | Example                                      |
-| ------------------ | --------------------- | ------ | ------------------------------------------------------------- | -------------------------------------------- |
-| ListSecrets        | `--limit`             | int    | No                                                            | `--limit=50`                                 |
-| ListSecrets        | `--marker`            | string | No                                                            | `--marker=<last_secret_name>`                |
-| ListSecrets        | `--event_name`        | string | No                                                            | `--event_name=my-event`                      |
-| ListSecretVersions | `--secret_name`       | string | **Yes**                                                       | `--secret_name=prod-db-password`             |
-| ListSecretVersions | `--limit`             | int    | No                                                            | `--limit=20`                                 |
-| UpdateSecret       | `--secret_name`       | string | **Yes**                                                       | `--secret_name=prod-db-password`             |
-| UpdateSecret       | `--auto_rotation`     | bool   | **Yes (for rotation)**                                        | `--auto_rotation=true`                       |
-| UpdateSecret       | `--rotation_period`   | string | **Yes (with auto_rotation=true)**                             | `--rotation_period=30d`                      |
-| UpdateSecret       | `--rotation_func_urn` | string | **Yes (when enabling rotation on a secret with no function)** | `--rotation_func_urn=urn:fss:cn-north-4:...` |
-| UpdateSecret       | `--description`       | string | No                                                            | `--description="db password"`                |
-| RotateSecret       | `--secret_name`       | string | **Yes**                                                       | `--secret_name=prod-db-password`             |
+| Operation          | Parameter             | Type   | Required               | Example                                      |
+| ------------------ | --------------------- | ------ | ---------------------- | -------------------------------------------- |
+| ListSecrets        | `--limit`             | int    | No                     | `--limit=50`                                 |
+| ListSecrets        | `--marker`            | string | No                     | `--marker=<last_secret_name>`                |
+| ListSecrets        | `--event_name`        | string | No                     | `--event_name=my-event`                      |
+| ShowSecret         | `--secret_name`       | string | **Yes**                | `--secret_name=prod-db-password`             |
+| ListSecretVersions | `--secret_name`       | string | **Yes**                | `--secret_name=prod-db-password`             |
+| ListSecretVersions | `--limit`             | int    | No                     | `--limit=20`                                 |
+| UpdateSecret       | `--secret_name`       | string | **Yes**                | `--secret_name=prod-db-password`             |
+| UpdateSecret       | `--auto_rotation`     | bool   | **Yes (for rotation)** | `--auto_rotation=true`                       |
+| UpdateSecret       | `--rotation_period`   | string | No                     | `--rotation_period=30d`                      |
+| UpdateSecret       | `--rotation_func_urn` | string | No                     | `--rotation_func_urn=urn:fss:cn-north-4:...` |
+| UpdateSecret       | `--description`       | string | No                     | `--description="db password"`                |
+| RotateSecret       | `--secret_name`       | string | **Yes**                | `--secret_name=prod-db-password`             |
 
 ### KMS
 
@@ -349,14 +370,14 @@ All parameters below were verified against `hcloud <Service> <Operation> --help`
 
 ### CTS
 
-| Operation  | Parameter         | Type   | Required | Example                                                 |
-| ---------- | ----------------- | ------ | -------- | ------------------------------------------------------- |
-| ListTraces | `--trace_type`    | string | **Yes**  | `--trace_type=system` (system=管理事件, data=数据事件)  |
-| ListTraces | `--service_type`  | string | No       | `--service_type=KMS`                                    |
-| ListTraces | `--trace_name`    | string | No       | `--trace_name=DeleteKey`                                |
-| ListTraces | `--resource_type` | string | No       | `--resource_type=cmk`                                   |
-| ListTraces | `--from` / `--to` | int    | No       | `--from=1754505600000` (13-digit UTC ms, used together) |
-| ListTraces | `--limit`         | int    | No       | `--limit=50`                                            |
+| Operation  | Parameter         | Type   | Required | Example                                                |
+| ---------- | ----------------- | ------ | -------- | ------------------------------------------------------ |
+| ListTraces | `--trace_type`    | string | **Yes**  | `--trace_type=system` (system=管理事件, data=数据事件) |
+| ListTraces | `--service_type`  | string | No       | `--service_type=KMS`                                   |
+| ListTraces | `--trace_name`    | string | No       | `--trace_name=DeleteKey`                               |
+| ListTraces | `--resource_type` | string | No       | `--resource_type=cmk`                                  |
+| ListTraces | `--from` / `--to` | string | No       | `--from=2026-08-01T00:00:00Z`                          |
+| ListTraces | `--limit`         | int    | No       | `--limit=50`                                           |
 
 Common to all operations: `--cli-region` (required), `--project_id` (required by API but auto-filled
 from the authenticated profile when omitted).
@@ -370,6 +391,5 @@ from the authenticated profile when omitted).
 - `references/dataflow-diagram.md` — Mermaid data flow diagram
 - `references/verification-method.md` — Verification method and acceptance checks
 - `references/acceptance-criteria.md` — Acceptance criteria for the 10 huawei_* actions
-- `templates/test-vars.json` — CLI test-case definitions (query / syntax check)
 - DEW Docs: https://support.huaweicloud.com/dew/
 - API Explorer: https://console.huaweicloud.com/apiexplorer/#/openapi/DEW/doc

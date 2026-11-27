@@ -1,5 +1,3 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-deployment-task-management - do not edit -->
-
 # Verification Method for huawei-cloud-deployment-task-management
 
 This document defines how to verify each action class of the skill.
@@ -8,10 +6,8 @@ This document defines how to verify each action class of the skill.
 
 - hcloud CLI ≥ 7.x installed and authenticated (see `cli-installation-guide.md`)
 - A CodeArts (DevCloud) project in a region where you have at least read access to CloudDeploy
-- For manage actions: a CodeArts project + a deployment template ID (for
-  `huawei_create_clouddeploy_task` — the application entity is created by the call), an existing
-  task for start/delete, and online target hosts with the CloudDeploy agent (for
-  `huawei_start_clouddeploy_task`)
+- For manage actions: an existing application (for task creation) and online target hosts with the
+  CloudDeploy agent (for `huawei_start_clouddeploy_task`)
 - For artifact verification: an OBS bucket/object configured as the artifact source
 
 ## Query Actions (R3) — Verification
@@ -41,14 +37,16 @@ scope, or parameter problems. For a non-CodeArts project, `Deploy.00016902 项�
 
 Always preview the exact command and wait for explicit user confirmation before execution.
 
-| Action                           | Verification After Execution                                                                                                                                       |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `huawei_create_clouddeploy_app`  | `ListAllApp` shows the new application (pre-check with `CheckIsDuplicateAppName` before creating)                                                                  |
-| `huawei_create_clouddeploy_task` | `ListDeployTasks` shows the new application entity (old model: task == app)                                                                                        |
-| `huawei_start_clouddeploy_task`  | `ListDeployTaskHistoryByDate` shows a new execution record for the task                                                                                            |
-| `huawei_delete_clouddeploy_task` | `ListDeployTasks` no longer contains the deleted task (old-model: the application entity is deleted; deployed software on hosts is NOT uninstalled — see SKILL.md) |
+| Action                           | Verification After Execution                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `huawei_create_clouddeploy_app`  | `ListAllApp` shows the new application (pre-check with `CheckIsDuplicateAppName` before creating) |
+| `huawei_create_clouddeploy_task` | `ListDeployTasks` shows the new task referencing the application                                  |
+| `huawei_start_clouddeploy_task`  | `ListDeployTaskHistoryByDate` shows a new execution record for the task                           |
+| `huawei_delete_clouddeploy_task` | `ListDeployTasks` no longer contains the deleted task                                             |
 
-**Resource lifecycle note (old model):** the deployment task IS the application entity — deleting the task deletes that entity; the software already deployed on target hosts is NOT uninstalled and OBS artifacts are NOT removed.
+**Resource lifecycle note:** deleting a task does not delete the application or deployed resources;
+applications are listed/created separately via `huawei_list_clouddeploy_apps` /
+`huawei_create_clouddeploy_app`.
 
 ## Negative Tests
 

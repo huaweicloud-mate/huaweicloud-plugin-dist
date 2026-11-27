@@ -1,20 +1,19 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-deployment-task-management - do not edit -->
-
 # Acceptance Criteria — huawei-cloud-deployment-task-management
 
 ## 1. Registration & Structure
 
-- [ ] `SKILL.md` exists under `skills/huawei-cloud-deployment-task-management/` with:
+- [ ] `SKILL.md` exists under `skills/{category}/{subcategory}/huawei-cloud-deployment-task-management/` with:
   - [ ] YAML frontmatter: `name: huawei-cloud-deployment-task-management` matches directory name; `description` contains
         feature summary and trigger words; `tags` ≤ 5; **no** `version` field
-  - [ ] Required sections: Step 0 (optional wrapper), Overview, Prerequisites, Workflow, Core Commands,
-        Parameter Confirmation, Reference Documents, KooCLI Command Format Standard
+  - [ ] Required sections: Overview, Prerequisites, Workflow, Core Commands, Parameter Confirmation,
+        Reference Documents, KooCLI Command Format Standard (V3 light embedding: no standalone
+        Quality Reporting section; telemetry embedded via Overview dependency + Prerequisites
+        `skill-quality-cli` ensure line + `skill-quality-cli run` wrapping)
   - [ ] SKILL.md ≤ 500 lines; total files ≤ 30; total size ≤ 40 MB; all file extensions allowed
 - [ ] `references/iam-policies.md`, `references/cli-installation-guide.md`,
       `references/verification-method.md`, `references/dataflow-diagram.md`,
       `references/acceptance-criteria.md` exist and use kebab-case filenames
-- [ ] `scripts/ensure_cli.sh` exists (availability check only; the wrapper is OPTIONAL)
-- [ ] `scripts/cli/cli_entry.py` ships the whitelist wrapper — no reporting module ships; SKILL.md carries the optional-wrapper note and the approval write-path routing note
+- [ ] `scripts/ensure_cli.sh` exists (idempotent skill-quality-cli installer) and `scripts/cli/` carries the built-in reporting carrier (`cli_entry.py` + `cli_reporting.py`)
 - [ ] No hardcoded credentials; no literal AK/SK or `hcloud configure set` with real values
 
 ## 2. Action Coverage (9 huawei_* actions)
@@ -27,16 +26,16 @@
 | `huawei_analyze_clouddeploy_failure`  | R3   | auto                     | `ListDeployTaskHistoryByDate` history evaluated for agent/timeout/artifact/permission causes |
 | `huawei_analyze_clouddeploy_artifact` | R3   | auto                     | Task artifact config verified against the OBS object (`hcloud obs ls`)                       |
 | `huawei_create_clouddeploy_app`       | R2   | preview+confirm          | Name uniqueness pre-checked; app created only after confirmation                             |
-| `huawei_create_clouddeploy_task`      | R2   | preview+confirm          | Task (old-model application entity) created only after confirmation                          |
+| `huawei_create_clouddeploy_task`      | R2   | preview+confirm          | Task created referencing an existing app only after confirmation                             |
 | `huawei_start_clouddeploy_task`       | R2   | preview+confirm          | Task started only after confirmation; host agent online                                      |
 | `huawei_delete_clouddeploy_task`      | R1   | preview+explicit confirm | Task deleted only after explicit second confirmation                                         |
 
 ## 3. Critical Warnings (must be preserved)
 
 - [ ] Flyway SQL dialect mismatch (H2 → MySQL) — migration audit guidance present
-- [ ] Service name is `CodeArtsDeploy` (verify with `hcloud CodeArtsDeploy ListAllApp --cli-region=cn-north-4 --help`; `CloudDeploy` unsupported)
+- [ ] Service name is `CodeArtsDeploy` (verify with `hcloud --help`; `CloudDeploy` unsupported)
 - [ ] Deployment hosts need the agent installed before tasks can run
-- [ ] Task IS the application entity (old model); CodeArts project + template must pre-exist; one creation path per application
+- [ ] Task must reference an application (app created before task)
 - [ ] Artifact source defaults to OBS — bucket/object verified before start
 - [ ] Parallel deployments may conflict — running-task check / serialization guidance
 - [ ] Security baseline — IAM roles, artifact integrity, no plaintext credentials
@@ -45,7 +44,7 @@
 
 - [ ] Every `hcloud CodeArtsDeploy <Operation>` uses PascalCase operation names and includes
       `--cli-region`
-- [ ] All required parameters from `--help` (KooCLI 7.2.12; parameter surfaces re-checked identical on 7.3.12) are present in command examples
+- [ ] All required parameters from `--help` (KooCLI 7.2.12) are present in command examples
 - [ ] Parameter names match `--help` output verbatim (e.g. `--states.1=failed`,
       `--params.1.type=encrypt`, `--configs.1.name`, `--create_type=template`)
 - [ ] `CheckIsDuplicateAppName` used as pre-check for `huawei_create_clouddeploy_app`

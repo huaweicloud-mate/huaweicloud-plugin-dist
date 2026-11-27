@@ -1,5 +1,3 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-smn-dms-message - do not edit -->
-
 # Data Flow Diagram
 
 ## SMN flow — notification publish

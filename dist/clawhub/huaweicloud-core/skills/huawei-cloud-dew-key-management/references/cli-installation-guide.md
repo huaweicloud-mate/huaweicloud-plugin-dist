@@ -1,102 +1,87 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-dew-key-management - do not edit -->
+# hcloud CLI Installation and Authentication Guide
 
-# KooCLI Installation & Authentication Guide
+All commands in this skill run through the **hcloud** CLI (KooCLI). This guide covers
+installation and the two supported authentication modes: **AK/SK credentials** and a
+**local hcloud profile**.
 
-## 1. Install KooCLI (hcloud)
+## 1. Install hcloud (KooCLI)
 
-Huawei Cloud CLI (KooCLI) is a single binary. See the official quickstart:
-https://support.huaweicloud.com/qs-hcli/hcli_02_003.html
-
-```bash
-# Linux x86_64
-curl -sSL https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/hcloud_install.sh -o hcloud_install.sh
-bash hcloud_install.sh
-
-# Or via Python package manager
-pip3 install huaweicloudcli
-```
-
-Verify:
+The hcloud CLI is a Python-based tool. Install with pip (requires Python 3.6+):
 
 ```bash
-hcloud version
-hcloud CSMS --help        # should list Available Operations for CSMS
-hcloud KMS --help         # should list Available Operations for KMS
+pip install huaweicloudcli
+# verify
+hcloud --version
 ```
 
-Keep KooCLI updated so CSMS/KMS/CTS operation/parameter metadata stays current:
+Or use the official offline package / cloud-shell bundled CLI — see
+https://support.huaweicloud.com/qs-hcli/hcli_02_003.html (KooCLI installation guide).
+
+Upgrade KooCLI to the latest version before use:
 
 ```bash
 hcloud update -y
 ```
 
-## 2. Authentication
+## 2. Authentication mode A — AK/SK environment variables
 
-Two supported ways (AK/SK never hardcoded in this skill):
-
-### Option A — Local profile (recommended for interactive agents)
-
-The agent must NOT write credentials on the user's behalf — never execute a credential-writing
-command (e.g. `configure set`/`configure init`) for them, and never inspect the raw profile:
-raw `hcloud configure show/list/get/export/init` is hook-blocked in agent tools.
-
-Check whether a profile already exists with `huaweicloud_show_profile_redacted` (the devkit's
-redacted status tool):
-
-- If a profile exists, use it directly (status via the redacted tool; the agent never sees secrets).
-- If no profile exists, tell the user to run `npx huaweicloud-devkit auth init` — the single
-  credential entry point, which mirrors to KooCLI without AK/SK entering shell history.
-
-### Option B — Environment variables (recommended for CI/agent runtimes)
-
-KooCLI reads the following environment variables (among others):
-
-| Variable                                           | Meaning                                         |
-| -------------------------------------------------- | ----------------------------------------------- |
-| `HUAWEICLOUD_SDK_AK` / `HUAWEI_ACCESS_KEY`         | Access Key ID                                   |
-| `HUAWEICLOUD_SDK_SK` / `HUAWEI_SECRET_KEY`         | Secret Access Key                               |
-| `HUAWEICLOUD_SDK_PROJECT_ID` / `HUAWEI_PROJECT_ID` | Project ID (optional; KooCLI can resolve it)    |
-| `HUAWEICLOUD_SDK_SECURITY_TOKEN`                   | Security token (only for temporary credentials) |
-
-Example:
+Export your Huawei Cloud AK/SK in the shell that runs the agent:
 
 ```bash
-export HUAWEICLOUD_SDK_AK=your-access-key
-export HUAWEICLOUD_SDK_SK=your-secret-key
-export HUAWEICLOUD_SDK_REGION=cn-north-4
+export HUAWEICLOUD_SDK_AK="your-access-key-id"
+export HUAWEICLOUD_SDK_SK="your-secret-access-key"
 ```
 
-### Security rules
+Alternative accepted variable names: `HUAWEI_ACCESS_KEY` / `HUAWEI_SECRET_KEY`,
+`HW_ACCESS_KEY` / `HW_SECRET_KEY`.
 
-- Never print, persist, or hardcode AK/SK — read them from the environment or the local profile only.
-- Never write AK/SK with `configure set` from inside a skill document or script; the agent checks profile status only via `huaweicloud_show_profile_redacted`.
-- Use the most restrictive IAM identity that still allows the needed CSMS/KMS/CTS operations (least privilege, see `references/iam-policies.md`).
+> **Security:** never hardcode AK/SK in skill files, scripts, or reports; never echo them
+> in the conversation. Prefer a local profile (mode B) or a secrets manager.
 
-## 3. Region and project
+## 3. Authentication mode B — local hcloud profile
 
-DEW is region-specific. Always pass `--cli-region` (e.g. `cn-north-4`). `--project_id` is
-auto-filled from the authenticated profile when omitted.
-
-## 4. Verifying authentication
+Configure a profile once; hcloud encrypts the credentials locally. **Prefer the interactive
+wizard** — it prompts for the AK/SK without exposing them on the command line or in shell history:
 
 ```bash
-# Read-only probe
-hcloud CSMS ListSecrets --cli-region=cn-north-4 --limit=10
+hcloud configure
 ```
 
-## 5. skill-quality-cli (OPTIONAL local wrapper)
+For scripted/CI environments, prefer AK/SK environment variables (mode A above) instead of passing
+credentials as command-line arguments (`--cli-access-key=... --cli-secret-key=...` would leak the
+secrets via the process list and shell history). If a profile is required in automation, create it
+in a protected session and keep the credential file permissions tight (`~/.hcloud/config.json`).
 
-The wrapper is OPTIONAL — when absent, this skill's hcloud commands run bare with identical
-semantics. The normalized v2 wrapper performs NO telemetry, NO network access, and NO
-self-upgrade; it only wraps whitelisted `hcloud` commands.
+Verify the profile:
 
 ```bash
-bash scripts/ensure_cli.sh   # availability CHECK only (no install, no PATH persistence)
-skill-quality-cli version    # verify it works, if installed
+hcloud configure list
 ```
 
-- Manual local deployment (offline): copy `scripts/cli/cli_entry.py` to
-  `~/.local/bin/skill-quality-cli.d/` and create `~/.local/bin/skill-quality-cli` as a
-  one-line wrapper executing `python3 ~/.local/bin/skill-quality-cli.d/cli_entry.py "$@"`.
-- There is nothing to disable: the wrapper reports nothing and contacts nothing.
-- If the wrapper is absent, run the inner `hcloud` command from the examples directly.
+Expected output contains a profile with `"mode": "AKSK"` and a **real** accessKeyId
+(e.g. `"accessKeyId": "HPUA..."` — if it shows a masked placeholder like `you****key`,
+re-run the configuration). It never prints the secret key.
+
+Optional: pin the default project / region inside the profile:
+
+```bash
+hcloud configure set --cli-profile=default --cli-project-id=<project_id> --cli-region=cn-north-4
+```
+
+## 4. Region and project
+
+- DEW (CSMS/KMS) and CTS are **regional** services. Always pass `--cli-region={region}`,
+  e.g. `--cli-region=cn-north-4`.
+- `--project_id` is required by the underlying APIs but hcloud auto-fills it from the
+  authenticated profile; you only need to pass it explicitly when using multiple projects.
+
+## 5. Verify DEW CLI support
+
+```bash
+hcloud CSMS --help      # shows CSMS operations (ListSecrets, ShowSecret, ...)
+hcloud KMS --help       # shows KMS operations (ListKeys, CreateKey, DeleteKey, ...)
+hcloud CTS --help       # shows CTS operations (ListTraces, ...)
+```
+
+KooCLI 7.2.x exposes rotation enablement as `CSMS UpdateSecret --auto_rotation=true`
+(there is no separate `EnableSecretRotation` operation).

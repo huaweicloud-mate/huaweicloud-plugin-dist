@@ -1,5 +1,3 @@
-<!-- generated from src/packs/huaweicloud-cli/skills/huawei-cloud-smn-dms-message - do not edit -->
-
 # Verification Method
 
 How to verify that the huawei-cloud-smn-dms-message skill is correctly installed and functional.
@@ -7,11 +5,12 @@ How to verify that the huawei-cloud-smn-dms-message skill is correctly installed
 ## 1. Environment sanity check
 
 ```bash
-hcloud version                                # KooCLI installed (7.x)
+hcloud -v                                     # KooCLI installed (>= 2.x)
 hcloud SMN --help           | head -5        # SMN service reachable
 hcloud Kafka --help         | head -5        # Kafka service reachable
 hcloud RabbitMQ --help      | head -5        # RabbitMQ service reachable
 hcloud RocketMQ --help      | head -5        # RocketMQ service reachable
+python3 --version                             # >= 3.8 if using scripts/smn_dms_skill.py
 ```
 
 Expected: each `--help` prints "Service:" + "Available Operations".
@@ -29,18 +28,23 @@ hcloud RocketMQ ListInstances --engine=rocketmq --cli-region=cn-north-4 --limit=
 
 Expected: valid JSON responses (empty lists are fine; an auth/region error is a failure).
 
-## 3. Action-level verification (direct hcloud commands)
+## 3. Action-level verification via the bundled script
 
-The corpus script executor does not ship — each `huawei_*` action maps to the direct
-`hcloud` command in SKILL.md "Core Commands"; verify action construction by reading
-the command against `hcloud <Service> <Operation> --help` before executing it.
+```bash
+python3 scripts/smn_dms_skill.py huawei_list_smn_topics --region=cn-north-4
+python3 scripts/smn_dms_skill.py huawei_list_dms_instances --engine=kafka --region=cn-north-4
+python3 scripts/smn_dms_skill.py huawei_analyze_smn_subscription_confirmation --region=cn-north-4
+python3 scripts/smn_dms_skill.py huawei_create_smn_topic --name=verify-tmp --display_name="" --region=cn-north-4 --preview
+```
+
+`--preview` prints the exact `hcloud` command without executing it — use it to confirm command
+construction safely for R2/R1 actions.
 
 ## 4. Write-action dry-run
 
-For every R2/R1 action, present the exact command via
-`huaweicloud_plan_cli_command` (or pass `--dryrun` where the operation supports
-it) and verify the printed command matches the SKILL.md Core Commands template
-and the current `hcloud <Service> <Operation> --help` before executing.
+For every R2/R1 action, run the same command with `--preview` and verify the printed `hcloud`
+command matches the approved SKILL.md template (region present, required params present,
+engine routed correctly). Only proceed to real execution after this dry run passes.
 
 ## 5. Full behavioral test (optional, requires real resources + confirmation)
 
@@ -52,12 +56,29 @@ and the current `hcloud <Service> <Operation> --help` before executing.
 
 Clean up all created resources and record before/after in the acceptance report.
 
-## 6. Wrapper (OPTIONAL) sanity
+## 6. Quality reporting (CLI) verification
 
 ```bash
-command -v skill-quality-cli   # or ~/.local/bin/skill-quality-cli (OPTIONAL; bare hcloud is equivalent)
-skill-quality-cli run --skill-name huawei-cloud-smn-dms-message -- hcloud SMN ListTopics --cli-region=cn-north-4 --limit=1
+# 6.1 CLI install (idempotent) + PATH export
+export PATH="$HOME/.local/bin:$PATH"
+bash scripts/ensure_cli.sh
+command -v skill-quality-cli   # or ~/.local/bin/skill-quality-cli
+
+# 6.2 Hard-bound report from the bare script (fire-and-forget; output unchanged)
+python3 scripts/smn_dms_skill.py huawei_list_smn_topics --region=cn-north-4
+#     → normal action output; a detached report subprocess runs in the background
+
+# 6.3 Usage error path → biz_fail (U02)
+python3 scripts/smn_dms_skill.py huawei_list_dms_instances --region=cn-north-4 ; echo "rc=$?"   # rc=2, report=biz_fail
+
+# 6.4 E2E real delivery through the installed CLI (must print [quality-report] OK trace_id=...)
+printf '{"session_id":"verify-smn-dms","trigger_type":"workflow"}' > /tmp/qcfg.json
+SKILL_QUALITY_REPORT_VERBOSE=1 skill-quality-cli \
+  report --skill-name huawei-cloud-smn-dms-message --status success --json /tmp/qcfg.json 2>&1 | tail -1
+
+# 6.5 Wrapper mode → exactly one report (script skips its own when SKILL_TRACE_ID is set)
+skill-quality-cli run --skill-name huawei-cloud-smn-dms-message -- python3 scripts/smn_dms_skill.py huawei_list_smn_topics --region=cn-north-4 --preview
 ```
 
-The wrapper is OPTIONAL: when absent, run the inner `hcloud` command from the examples
-directly. It performs no reporting and contacts no endpoint.
+Expected: step 6.4 prints `[quality-report] OK trace_id=<id>` (HTTP 200 from the quality endpoint);
+steps 6.2/6.3/6.5 complete with their normal output/exit codes unchanged (reporting never blocks).

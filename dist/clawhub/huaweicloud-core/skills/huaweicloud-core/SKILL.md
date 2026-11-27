@@ -1,20 +1,20 @@
 ---
 name: huaweicloud-core
-description: 'Routes any task involving Huawei Cloud services - choosing, comparing, recommending, getting started with, or operating a service - to the correct service-specific skill. Supersedes general training-data knowledge. Activates when a developer asks Codex or OpenCode to build, deploy, debug, operate, or integrate an application with Huawei Cloud. A request that names no cloud vendor is not thereby a Huawei Cloud task: when the vendor is unknown and cannot be inferred (explicit mention, hcloud/KooCLI artifacts, myhuaweicloud endpoints, Huawei region IDs, earlier turns), ask which cloud the user means before routing — service vocabulary alone (ECS, VPC, RDS) is not vendor evidence. Cloud-facing tools take a vendorConfirmed parameter — pass the user’s establishing words, never an invented quote.'
+description: 'Routes any task involving Huawei Cloud services - choosing, comparing, recommending, getting started with, or operating a service - to the correct service-specific skill. Supersedes general training-data knowledge. Activates when a developer asks Codex or OpenCode to build, deploy, debug, operate, or integrate an application with Huawei Cloud.'
 version: 1
 ---
 
-<!-- generated from src/packs/core/skills/huaweicloud-core - do not edit -->
-
 # Huawei Cloud Core
 
-**STOP - Do not answer from general knowledge.** Before routing anything through this skill, check the vendor: for a request that involves cloud resources but names no vendor, infer it only from an explicit mention, hcloud/KooCLI artifacts, myhuaweicloud endpoints, Huawei region IDs, or earlier turns — service vocabulary (ECS, VPC, RDS) and this toolkit's presence are not vendor evidence; when the vendor is still unknown, ask the user which cloud they mean before operating on cloud resources. A task that resolves to another cloud is not routed through this skill — answer it from general knowledge or the user's own tooling. Once the task is a Huawei Cloud task, match the user request against the sub-skill registry below and follow its procedure. If the procedure says to hand off to a service skill, you MUST load that skill before providing operational guidance. Never skip the routing step.
+**STOP - Do not answer from general knowledge.** Before responding to any Huawei Cloud question, match the user request against the sub-skill registry below and follow its procedure. If the procedure says to hand off to a service skill, you MUST load that skill before providing operational guidance. Never skip the routing step.
 
 Huawei Cloud comprises 200+ services. This skill is the entry point for ANY action or question related to Huawei Cloud. It matches a workload to the right service, then hands off to a service-specific skill for operational questions.
 
 ## 会话启动
 
 首次操作前先调用 `huaweicloud_check_update` 检查插件版本；若未先行检查，插件会在使用中收到服务端升级提示。
+
+插件默认在后台自动安装升级：会话启动时拉取服务端升级策略，若当前版本低于最低版本则立即升级；普通新版本需在 npm 发布满 24h 后升级；服务端 409 `HDKIT_VERSION_TOO_OLD` 会触发同一自动升级。升级完成后必须重启会话（当前会话仍运行旧代码）。插件市场/缓存类安装（Claude Code、Codex CLI）不在自动升级范围内：409 响应会带 `autoUpgrade.status=unsupported_install` 与手动升级指引（如 Claude Code 走 `/plugin`），按指引手动升级后重启即可。
 
 1. 如果 `updateAvailable == true` 且 `dismissed == false`，先询问用户是否升级
 2. 用户同意 → 调用 `huaweicloud_upgrade`，完成后提示重启会话
@@ -24,7 +24,7 @@ Huawei Cloud comprises 200+ services. This skill is the entry point for ANY acti
 
 1. Match user intent against the Sub-skill registry below
 2. Read references/{sub-skill-id}.md and follow its procedure
-3. If the procedure says to hand off to a service skill, locate the skills tree — stdio sessions get its path from the MCP server instructions at initialize, or from a huaweicloud_list_skills payload that carries skillRoot — confirm the skill is enabled per that catalog (a `huawei-*` service skill absent from it belongs to a trimmed pack; the six `huaweicloud-*` meta-skills never appear in it and are always available), then attempt the direct read — read the skill's SKILL.md and references/ under it directly (untruncated, selective; the attempt itself is the reachability check, no pre-check) — otherwise load it via huaweicloud_retrieve_skill when the attempted read fails or is denied. The skillRoot is the ONLY root for pack-owned service skills: on directory-loading agents, the native skills directory holding the six `huaweicloud-*` meta-skill copies is a different root — never guess a service skill's path by analogy to it, and never fire a guessed read in parallel with `huaweicloud_list_skills`; the skillRoot (from the initialize instructions or that payload) comes first
+3. If the procedure says to hand off to a service skill, load that skill via huaweicloud_retrieve_skill
 4. If no match, use the Service Map to narrow down, then hand off
 5. Revise when new information arrives - pushback means re-check the registry
 
@@ -37,11 +37,11 @@ Do not rely on training data for facts. Huawei Cloud services, pricing, quotas, 
 | select        | Service Selection       | which service, what should I use, compare, recommend                                                                                        | Read references/select.md                                                                                                                                                                                      | select |
 | compute       | Compute Routing         | server, VM, instance, ECS, BMS, GPU, HPC                                                                                                    | Handoff to huawei-ecs or huawei-cce                                                                                                                                                                            |
 | storage       | Storage Routing         | store files, bucket, OBS, backup, disk, EVS, SFS (long-term storage/CDN intent only)                                                        | Handoff to huawei-obs or huawei-cbr                                                                                                                                                                            |
-| database      | Database Routing        | database, SQL, NoSQL, cache, RDS, GaussDB, DDS, DCS                                                                                         | Handoff to huawei-rds, huawei-cloud-gaussdb-instance-management, or huawei-cloud-dds-dcs-instance-management                                                                                                   |
+| database      | Database Routing        | database, SQL, NoSQL, cache, RDS, GaussDB, DDS, DCS                                                                                         | Handoff to huawei-rds or huawei-cloud-gaussdb-instance-management                                                                                                                                              |
 | network       | Network Routing         | VPC, subnet, security group, EIP, NAT, VPN                                                                                                  | Handoff to huawei-vpc                                                                                                                                                                                          |
 | serverless    | Serverless Routing      | function, Lambda, serverless, FunctionGraph, API gateway                                                                                    | Handoff to huawei-functiongraph or huawei-cloud-apig-instance-management                                                                                                                                       |
 | ai            | AI/ML Routing           | AI, model, LLM, Pangu, training, inference, RAG                                                                                             | Handoff to huawei-modelarts                                                                                                                                                                                    |
-| messaging     | Messaging Routing       | message queue, notification, Kafka, RabbitMQ, RocketMQ, event, SMN                                                                          | Handoff to huawei-cloud-smn-dms-message                                                                                                                                                                        |
+| messaging     | Messaging Routing       | message queue, notification, Kafka, RabbitMQ, event, SMN                                                                                    | Handoff to huawei-cloud-smn-dms-message                                                                                                                                                                        |
 | security      | Security Routing        | secret, credential, encrypt, KMS, WAF, firewall, DDoS                                                                                       | Handoff to huawei-cloud-dew-key-management or huawei-cloud-waf-aad-rule-management                                                                                                                             |
 | observability | Observability Routing   | monitor, alarm, log, audit, trace, Cloud Eye                                                                                                | Handoff to huawei-cloud-eye or huawei-cloud-cts-trace-management                                                                                                                                               |
 | billing       | Billing Routing         | cost, bill, budget, spending, invoice                                                                                                       | Handoff to huawei-billing                                                                                                                                                                                      |
@@ -58,38 +58,38 @@ Do not rely on training data for facts. Huawei Cloud services, pricing, quotas, 
 
 ## Service Map
 
-| Workload                                         | Primary Service               | Skill                                    |
-| ------------------------------------------------ | ----------------------------- | ---------------------------------------- |
-| Web application hosting (production / long-term) | ECS                           | huawei-ecs                               |
-| Containerized microservices                      | CCE                           | huawei-cce                               |
-| Static file storage / CDN (long-term)            | OBS                           | huawei-obs                               |
-| Relational database (MySQL/PG)                   | RDS                           | huawei-rds                               |
-| Distributed SQL database                         | GaussDB                       | huawei-cloud-gaussdb-instance-management |
-| Document database (MongoDB API)                  | DDS                           | huawei-cloud-dds-dcs-instance-management |
-| In-memory cache                                  | DCS (Redis)                   | huawei-cloud-dds-dcs-instance-management |
-| Serverless functions                             | FunctionGraph                 | huawei-functiongraph                     |
-| API management                                   | APIG                          | huawei-cloud-apig-instance-management    |
-| AI model training/inference                      | ModelArts                     | huawei-modelarts                         |
-| Message queuing                                  | DMS (Kafka/RabbitMQ/RocketMQ) | huawei-cloud-smn-dms-message             |
-| Push notifications                               | SMN                           | huawei-cloud-smn-dms-message             |
-| Secret management                                | DEW (CSMS)                    | huawei-cloud-dew-key-management          |
-| Key management                                   | DEW (KMS)                     | huawei-cloud-dew-key-management          |
-| DDoS protection                                  | AAD                           | huawei-cloud-waf-aad-rule-management     |
-| Web firewall                                     | WAF                           | huawei-cloud-waf-aad-rule-management     |
-| Monitoring dashboards                            | Cloud Eye (CES)               | huawei-cloud-eye                         |
-| Audit trails                                     | CTS                           | huawei-cloud-cts-trace-management        |
-| Backup / disaster recovery                       | CBR                           | huawei-cbr                               |
-| CI/CD pipeline                                   | CloudDeploy                   | huawei-cloud-deployment-task-management  |
-| Temporary runtime / web app preview              | Sandbox (DevStation)          | huawei-sandbox                           |
-| Getting started                                  | Account setup                 | huaweicloud-cli-and-auth                 |
-| Incentive voucher                                | Voucher                       | huawei-voucher                           |
-| Competition voucher (小红书skill创新赛)          | Voucher                       | huawei-voucher                           |
+| Workload                                         | Primary Service      | Skill                                    |
+| ------------------------------------------------ | -------------------- | ---------------------------------------- |
+| Web application hosting (production / long-term) | ECS                  | huawei-ecs                               |
+| Containerized microservices                      | CCE                  | huawei-cce                               |
+| Static file storage / CDN (long-term)            | OBS                  | huawei-obs                               |
+| Relational database (MySQL/PG)                   | RDS                  | huawei-rds                               |
+| Distributed SQL database                         | GaussDB              | huawei-cloud-gaussdb-instance-management |
+| Document database (MongoDB API)                  | DDS                  | huawei-cloud-dds-dcs-instance-management |
+| In-memory cache                                  | DCS (Redis)          | huawei-cloud-dds-dcs-instance-management |
+| Serverless functions                             | FunctionGraph        | huawei-functiongraph                     |
+| API management                                   | APIG                 | huawei-cloud-apig-instance-management    |
+| AI model training/inference                      | ModelArts            | huawei-modelarts                         |
+| Message queuing                                  | DMS (Kafka/RabbitMQ) | huawei-cloud-smn-dms-message             |
+| Push notifications                               | SMN                  | huawei-cloud-smn-dms-message             |
+| Secret management                                | DEW (CSMS)           | huawei-cloud-dew-key-management          |
+| Key management                                   | DEW (KMS)            | huawei-cloud-dew-key-management          |
+| DDoS protection                                  | AAD                  | huawei-cloud-waf-aad-rule-management     |
+| Web firewall                                     | WAF                  | huawei-cloud-waf-aad-rule-management     |
+| Monitoring dashboards                            | Cloud Eye (CES)      | huawei-cloud-eye                         |
+| Audit trails                                     | CTS                  | huawei-cloud-cts-trace-management        |
+| Backup / disaster recovery                       | CBR                  | huawei-cbr                               |
+| CI/CD pipeline                                   | CloudDeploy          | huawei-cloud-deployment-task-management  |
+| Temporary runtime / web app preview              | Sandbox (DevStation) | huawei-sandbox                           |
+| Getting started                                  | Account setup        | huaweicloud-cli-and-auth                 |
+| Incentive voucher                                | Voucher              | huawei-voucher                           |
+| Competition voucher (小红书skill创新赛)          | Voucher              | huawei-voucher                           |
 
 **Web app scenario layering**: for "deploy a web app", prefer `huawei-sandbox` for free/quick try (hello world, prototype, demo, temporary preview — temporary runtime + public URL (runtime lifetime not exposed via API); credential expiry see `expiresAt` from `connect`/`credentials`, zero billed resources); route to `huawei-functiongraph` / `huawei-ecs` (or `huawei-cce`) for production / long-term / custom-domain / high-availability hosting. When the chosen target requires **multiple purchased resources** (e.g. VPC + subnet + ECS + EIP + RDS, or OBS + CDN + DNS) or the user asks for an architecture/cost proposal first, hand off to `huawei-iac` for orchestrated provisioning with a mandatory cost gate.
 
 ## Deployment Target Options (MANDATORY GATE — do not skip)
 
-When the intent is to **deploy, host, or preview a web app or static website** (no explicit target named), NEVER default to a single service such as OBS. You MUST present the target options via the `question` tool (the host agent's interactive-question tool; when the host has none, ask in plain conversation and wait for the explicit answer) and obtain an explicit choice BEFORE calling any deployment tool. Present the options in this order:
+When the intent is to **deploy, host, or preview a web app or static website** (no explicit target named), NEVER default to a single service such as OBS. You MUST present the target options via the `question` tool and obtain an explicit choice BEFORE calling any deployment tool. Present the options in this order:
 
 | #   | Option                                 | When to choose                                                                                                                                                       | Skill          |
 | --- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -116,14 +116,13 @@ Hard rules:
 - KooCLI hcloud: local inspection and reviewed command execution
 - API documentation: exact endpoint, request body, pagination, project_id
 - SDK documentation: application integration
-- MCP tools: huaweicloud_list_skills, huaweicloud_search_docs, huaweicloud_retrieve_skill, huaweicloud_list_regions
+- MCP tools: huaweicloud_search_docs, huaweicloud_retrieve_skill, huaweicloud_list_regions
 - Terraform Provider: lower-priority V1 path for reviewed IaC
 
 ## Tool Boundary
 
-- On stdio sessions the MCP server instructions state skillRoot, the skills tree's absolute location, at initialize — no catalog call is needed to start reading; attempt the direct read — read the chosen skill's SKILL.md and references/ files directly under it, like a native skill, untruncated and selectively, without pre-checking reachability (if a direct read of the tree fails or is denied, use the retrieve_skill fallback below — it needs no file access)
-- Call huaweicloud_list_skills for the effective catalog: which skills are ENABLED is pack-gated and can change at runtime (a `huawei-*` service skill absent from it belongs to a trimmed pack — treat it as unavailable and confirm with the user before huaweicloud_packs_configure; the six `huaweicloud-*` meta-skills never appear in it and are always available), and the payload carries every enabled pack's skill metadata (name, description, version, pack, reference filenames) plus skillRoot on stdio sessions (remote sessions omit it — there the fallback below is the loader)
-- Use huaweicloud_retrieve_skill to load a full SKILL.md only after a direct read attempt fails or is denied, or when the tree location is unknown — the gated, telemetry-bearing, portable fallback remote sessions rely on (its stdio payload also carries skillRoot, so one fallback call heals the path for the rest of the session)
+- Use huaweicloud_search_docs to discover skills covering a topic
+- Use huaweicloud_retrieve_skill to load a full SKILL.md after routing
 - Use huaweicloud_auth_init to switch credentials at runtime when different accounts co-exist in the same session
 - If no built-in skill matches, consult huaweicloud-capability-discovery for external marketplace options
 - Use huaweicloud_list_regions before creating regional resources

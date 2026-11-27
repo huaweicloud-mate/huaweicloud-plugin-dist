@@ -7,7 +7,7 @@
       "type": "query",
       "executor": "cli",
       "command": "hcloud CTS ListOperations --cli-region={region}",
-      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4); parameter surfaces re-checked identical on 7.3.12. project_id auto-filled from the authenticated profile."
+      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4). project_id auto-filled from the authenticated profile."
     },
     {
       "id": "TC-02",
@@ -15,7 +15,7 @@
       "type": "query",
       "executor": "cli",
       "command": "hcloud CTS ListTrackers --cli-region={region}",
-      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4); parameter surfaces re-checked identical on 7.3.12. project_id auto-filled from the authenticated profile."
+      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4). project_id auto-filled from the authenticated profile."
     },
     {
       "id": "TC-03",
@@ -23,7 +23,7 @@
       "type": "query",
       "executor": "cli",
       "command": "hcloud CTS ListTraces --cli-region={region} --trace_type=system --limit=5",
-      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4); parameter surfaces re-checked identical on 7.3.12."
+      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4)."
     },
     {
       "id": "TC-04",
@@ -31,7 +31,7 @@
       "type": "query",
       "executor": "cli",
       "command": "hcloud CTS ListNotifications --cli-region={region} --notification_type=smn",
-      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4); parameter surfaces re-checked identical on 7.3.12."
+      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4)."
     },
     {
       "id": "TC-05",
@@ -47,7 +47,7 @@
       "type": "syntax",
       "executor": "cli",
       "command": "hcloud CTS CreateTracker --cli-region={region} --help",
-      "note": "Write op (R2). Live mutation routed through the devkit approval chain (huaweicloud_plan_cli_command then huaweicloud_run_approved_command). --help only."
+      "note": "Write op (R2). Live mutation gated by confirmation policy and framework ALLOW_WRITES + allow_writes.yaml. --help only."
     },
     {
       "id": "TC-07",
@@ -55,7 +55,7 @@
       "type": "syntax",
       "executor": "cli",
       "command": "hcloud CTS CreateNotification --cli-region={region} --help",
-      "note": "Write op (R2). Live mutation routed through the devkit approval chain (huaweicloud_plan_cli_command then huaweicloud_run_approved_command). --help only."
+      "note": "Write op (R2). Live mutation gated by confirmation policy and framework ALLOW_WRITES + allow_writes.yaml. --help only."
     },
     {
       "id": "TC-08",
@@ -63,7 +63,7 @@
       "type": "syntax",
       "executor": "cli",
       "command": "hcloud CTS DeleteTracker --cli-region={region} --help",
-      "note": "Write op (R1, irreversible). Live deletion routed through the devkit approval chain (huaweicloud_plan_cli_command then huaweicloud_run_approved_command). --help only."
+      "note": "Write op (R1, irreversible). Live deletion gated by confirmation policy and framework ALLOW_WRITES + allow_writes.yaml. --help only."
     },
     {
       "id": "TC-09",
@@ -71,7 +71,7 @@
       "type": "query",
       "executor": "cli",
       "command": "hcloud CTS ListQuotas --cli-region={region}",
-      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4); parameter surfaces re-checked identical on 7.3.12."
+      "note": "Read-only R3 query. Verified against real hcloud KooCLI 7.2.12 (cn-north-4)."
     },
     {
       "id": "TC-10",
@@ -79,7 +79,7 @@
       "type": "syntax",
       "executor": "cli",
       "command": "hcloud CTS CheckObsBuckets --cli-region={region} --help",
-      "note": "--help syntax check (rc=0). Live form: hcloud CTS CheckObsBuckets --cli-region={region} --domain_id={domain_id} --buckets.1.bucket_name={obs_bucket_name}."
+      "note": "--help syntax check (rc=0). Live form: hcloud CTS CheckObsBuckets --cli-region={region} --bucket_name={obs_bucket_name}."
     }
   ]
 }
